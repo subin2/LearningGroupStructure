@@ -15,4 +15,4 @@ Jaesik Choi, 2018.
 * matplotlib  
 
 ## LICENSE
-MIT license
+MIT License
