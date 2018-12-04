@@ -14,3 +14,5 @@ Jaesik Choi, 2018.
 * cPickle  
 * matplotlib  
 
+## LICENSE
+MIT license
