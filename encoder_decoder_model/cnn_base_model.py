@@ -23,7 +23,7 @@ class CNNBaseModel(object):
 
     @staticmethod
     def conv2d(input_data, out_channel, kernel_size,
-              padding='SAME',  stride='1', w_init=None, b_init=None,
+              padding='SAME',  stride=1, w_init=None, b_init=None,
               split=1, use_bias=True, data_format='NHWC', name=None):
         """
         Packing the tensorflow conv2d function
@@ -145,13 +145,13 @@ class CNNBaseModel(object):
                               data_format=data_format, name=name)
 
     @staticmethod
-    def avg_pooling(inputdata, kernel_size, stride=None, padding='VALID',
+    def avg_pooling(input_data, kernel_size, stride=None, padding='VALID',
                    data_format='NHWC', name=None):
         """
 
 
         :param name:
-        :param inputdata:
+        :param input_data:
         :param kernel_size:
         :param stride:
         :param padding:
@@ -166,23 +166,23 @@ class CNNBaseModel(object):
 
         strides = [1, stride, stride, 1] if data_format == 'NHWC' else [1, 1, stride, stride]
 
-        return tf.nn.avg_pool(value=inputdata, ksize=kernel, strides=strides, padding=padding,
+        return tf.nn.avg_pool(value=input_data, ksize=kernel, strides=strides, padding=padding,
                               data_format=data_format, name=name)
 
     @staticmethod
-    def global_avg_pooling(inputdata, data_format='NHWC', name=None):
+    def global_avg_pooling(input_data, data_format='NHWC', name=None):
         """
         :param name:
-        :param inputdata:
+        :param input_data:
         :param data_format:
         :return:
         """
-        assert inputdata.shape.ndims == 4
+        assert input_data.shape.ndims == 4
         assert data_format in ['NHWC', 'NCHW']
 
         axis = [1, 2] if data_format == 'NHWC' else [2, 3]
 
-        return tf.reduce_mean(input_tensor=inputdata, axis=axis, name=name)
+        return tf.reduce_mean(input_tensor=input_data, axis=axis, name=name)
 
     @staticmethod
     def layer_norm(input_data, epsilon=1e-5, use_bias=True, use_scale=True,
@@ -255,16 +255,16 @@ class CNNBaseModel(object):
         """
         shape = input_data.get_shape().as_list()[1:]
         if None not in shape:
-            inputdata = tf.reshape(input_data, [-1, int(np.prod(shape))])
+            input_data = tf.reshape(input_data, [-1, int(np.prod(shape))])
         else:
-            inputdata = tf.reshape(input_data, tf.stack([tf.shape(input_data)[0], -1]))
+            input_data = tf.reshape(input_data, tf.stack([tf.shape(input_data)[0], -1]))
 
         if w_init is None:
             w_init = tf.contrib.layers.variance_scaling_initializer()
         if b_init is None:
             b_init = tf.constant_initializer()
 
-        ret = tf.layers.dense(inputs=inputdata, activation=lambda x: tf.identity(x, name='output'),# activation???
+        ret = tf.layers.dense(inputs=input_data, activation=lambda x: tf.identity(x, name='output'),# activation???
                               use_bias=use_bias, name=name,
                               kernel_initializer=w_init, bias_initializer=b_init,
                               trainable=True, units=out_dim)
