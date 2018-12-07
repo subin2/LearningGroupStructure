@@ -65,15 +65,15 @@ class CNNBaseModel(object):
                     else [1, 1, stride, stride]
 
             if w_init is None:
-                w_init = tf.contrib.layers.variance_scaling_initializer()           #??? variance_scaling_initializer()
+                w_init = tf.contrib.layers.variance_scaling_initializer()
             if b_init is None:
                 b_init = tf.constant_initializer()
 
-            w = tf.get_variable('W', filter_shape, initializer=w_init)              #??? get_variable()
+            w = tf.get_variable('W', filter_shape, initializer=w_init)
             b = None
 
             if use_bias:
-                b = tf.get_variable('b', [out_channel], initializer=b_init)         #??? 为什么是[out_channel]
+                b = tf.get_variable('b', [out_channel], initializer=b_init)
 
             if split == 1:
                 conv = tf.nn.conv2d(input_data, w, strides, padding, data_format=data_format)
