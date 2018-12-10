@@ -160,16 +160,7 @@ class RCL(object):
 		with tf.variable_scope(name):
 			self.weight = tf.Variable( tf.random_normal(weight_size, stddev=std, dtype=tf.float32)) if weight is None else weight
 			self.biases = tf.Variable( tf.random_normal([weight_size[-1]], stddev=std, dtype=tf.float32)) if biases is None else biases
-			"""
-			rcl = tf.nn.bias_add(tf.nn.conv2d(input=input, filter=self.weight, strides=strides, padding=padding), 
-                                 self.biases)
-            if use_batchnorm:
-                batch_mean, batch_var = tf.nn.moments(rcl, [0])#[0,1,2]
-                rcl = tf.nn.batch_normalization(rcl, batch_mean, batch_var, offset, scale, epsilon)
-            if nonlinearity != None:
-                rcl = nonlinearity(rcl)
-            network = rcl
-			"""
+
 			network = input
  		 	if num_iter == 0:
  		 		network = tf.nn.bias_add(tf.nn.conv2d(input=network, filter=self.weight, strides=strides, padding=padding),
