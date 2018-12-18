@@ -153,7 +153,7 @@ class DenseEncoder(cnn_base_model.CNNBaseModel):
             dense_block_input = conv1
 
             for dense_block_index in range(self._N):
-                dense_block_name = 'Dense_Block_{:d}'.format(dense_block_index + 1)
+
                 dense_block_name = 'Dense_Block_{:d}'.format(dense_block_index + 1)
 
                 # dense connectivity

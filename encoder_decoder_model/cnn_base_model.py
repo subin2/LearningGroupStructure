@@ -204,21 +204,21 @@ class CNNBaseModel(object):
         mean, var = tf.nn.moments(input_data, list(range(1, len(shape))), keep_dims=True)
 
         if data_format == 'NCHW':
-            chanel = shape[1]
-            new_shape = [1, chanel, 1, 1]
+            channel = shape[1]
+            new_shape = [1, channel, 1, 1]
         else:
-            chanel = shape[-1]
-            new_shape = [1, 1, 1, chanel]
+            channel = shape[-1]
+            new_shape = [1, 1, 1, channel]
         if ndims == 2:
-            new_shape = [1, chanel]
+            new_shape = [1, channel]
 
         if use_bias:
-            beta = tf.get_variable('beta', [chanel], initializer=tf.constant_initializer())
+            beta = tf.get_variable('beta', [channel], initializer=tf.constant_initializer())
             beta = tf.reshape(beta, new_shape)
         else:
             beta = tf.zeros([1] * ndims, name='beta')
         if use_scale:
-            gamma = tf.get_variable('gamma', [chanel], initializer=tf.constant_initializer(1.0))
+            gamma = tf.get_variable('gamma', [channel], initializer=tf.constant_initializer(1.0))
             gamma = tf.reshape(gamma, new_shape)
         else:
             gamma = tf.ones([1] * ndims, name='gamma')

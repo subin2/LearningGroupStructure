@@ -552,8 +552,8 @@ Load dataset
 
 data_path = './CIFAR-10'
 
-# one_hot_enc = preprocessing.OneHotEncoder(n_values=10, sparse=False)
-one_hot_enc = preprocessing.OneHotEncoder(categories=[range(10)], sparse=False)
+one_hot_enc = preprocessing.OneHotEncoder(n_values=10, sparse=False)
+# one_hot_enc = preprocessing.OneHotEncoder(categories=[range(10)], sparse=False)
 
 train_data=[]
 train_label=[]
