@@ -204,21 +204,21 @@ class CNNBaseModel(object):
         mean, var = tf.nn.moments(input_data, list(range(1, len(shape))), keep_dims=True)
 
         if data_format == 'NCHW':
-            channnel = shape[1]
-            new_shape = [1, channnel, 1, 1]
+            chanel = shape[1]
+            new_shape = [1, chanel, 1, 1]
         else:
-            channnel = shape[-1]
-            new_shape = [1, 1, 1, channnel]
+            chanel = shape[-1]
+            new_shape = [1, 1, 1, chanel]
         if ndims == 2:
-            new_shape = [1, channnel]
+            new_shape = [1, chanel]
 
         if use_bias:
-            beta = tf.get_variable('beta', [channnel], initializer=tf.constant_initializer())
+            beta = tf.get_variable('beta', [chanel], initializer=tf.constant_initializer())
             beta = tf.reshape(beta, new_shape)
         else:
             beta = tf.zeros([1] * ndims, name='beta')
         if use_scale:
-            gamma = tf.get_variable('gamma', [channnel], initializer=tf.constant_initializer(1.0))
+            gamma = tf.get_variable('gamma', [chanel], initializer=tf.constant_initializer(1.0))
             gamma = tf.reshape(gamma, new_shape)
         else:
             gamma = tf.ones([1] * ndims, name='gamma')
@@ -287,7 +287,7 @@ class CNNBaseModel(object):
                  use_bias=True, activation=None, data_format='channels_last',
                  trainable=True, name=None):
         """
-        Packing the tensorflow conv2d function.
+        Packing the tensorflow conv2d_transpose function.
 
         :param input_data:
         :param out_channel:
@@ -330,6 +330,7 @@ class CNNBaseModel(object):
     def dilation_conv(input_data, k_size, out_dims, rate, padding='SAME',
                       w_init=None, b_init=None, use_bias=False, name=None):
         """
+        Packing the tensorflow atrous_conv2d function.
 
         :param input_data:
         :param k_size:
