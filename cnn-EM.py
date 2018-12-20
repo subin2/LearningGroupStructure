@@ -552,14 +552,14 @@ Load dataset
 
 data_path = './CIFAR-10'
 
-# one_hot_enc = preprocessing.OneHotEncoder(n_values=10, sparse=False)
-one_hot_enc = preprocessing.OneHotEncoder(categories=[range(10)], sparse=False)
+one_hot_enc = preprocessing.OneHotEncoder(n_values=10, sparse=False)
+# one_hot_enc = preprocessing.OneHotEncoder(categories=[range(10)], sparse=False)
 
 train_data=[]
 train_label=[]
 for i in range(5):
     tmp = unpickle('./cifar-10-batches-py/data_batch_'+str(i+1))
-    print(tmp)
+    # print(tmp)
     train_data.append(tmp["data"])
     train_label.append(tmp["labels"])
 train_data = np.concatenate(train_data).reshape([-1, 32,32,3], order='F')
@@ -572,7 +572,6 @@ test_label = unpickle('./cifar-10-batches-py/test_batch')['labels']
 test_label = np.array(test_label)
 test_label = one_hot_enc.fit_transform(test_label.reshape([-1,1]))
 print("test data: {}, {}" .format(test_label.shape, test_label.shape))
-
 
 
 """
@@ -603,6 +602,7 @@ l_rate = 0.0001
 std = 0.05
 
 num_epochs = 400
+# num_epochs = 2
 train_batch_num = train_data.shape[0] / batch_size
 #valid_batch_num = valid_data.shape[0] / batch_size
 test_batch_num = test_data.shape[0] / batch_size
@@ -666,10 +666,12 @@ model_name = str(inputs[1:]).replace(', ', '_')+'-['+str(inputs[1]/ pool_size[0]
              str(conv[2])+']'+\
              '-em'+str(em_layers).replace(', ','_')[1:-1]+\
              '-cl'+str(cluster_num)+'-q'+str(q_param)+'-iter'+str(iter).replace(', ','_')[1:-1]+\
-             '-feedforward'+str(feed_forwards).replace(', ','_')[1:-1]
-             # '-weightsize'+str(np.array(weight_size)[:,0:2]).replace('\n ','_').replace(' ',',')[1:-1]+\
-             # '-batch'+str(batch_size)+'-l_rate'+str(l_rate)+'-std'+str(std)+\
-             # '-l_step'+str(l_step/train_batch_num)+'-l_decay'+str(l_decay)
+             '-feedforward'+str(feed_forwards).replace(', ','_')[1:-1]+\
+             '-weightsize'+str(np.array(weight_size)[:,0:2]).replace('\n ','_').replace(' ',',')[1:-1]+\
+             '-batch'+str(batch_size)+'-l_rate'+str(l_rate)+'-std'+str(std)+\
+             '-l_step'+str(l_step/train_batch_num)+'-l_decay'+str(l_decay)
+
+model_name = "history"
 
 if use_dropout:
     model_name = model_name + '-keep'+str(keep_probs).replace(', ','_')[1:-1]
