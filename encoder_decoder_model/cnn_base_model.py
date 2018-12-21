@@ -292,8 +292,8 @@ class CNNBaseModel(object):
         else:
             input_data = tf.reshape(input_data, tf.stack([tf.shape(input_data)[0], -1]))
 
-        if w_init is None:
-            w_init = tf.contrib.layers.variance_scaling_initializer(distribution="normal")
+        # if w_init is None:
+            # w_init = tf.contrib.layers.variance_scaling_initializer(distribution="normal")
         if b_init is None:
             b_init = tf.constant_initializer()
 
