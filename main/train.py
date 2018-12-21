@@ -294,6 +294,9 @@ print("params_num:  {}".format(params_num))
 
 #model.save()
 
-#b = tf.get_default_graph().get_tensor_by_name("convs/conv_1/Conv/bias:0")
-#w = tf.get_default_graph().get_tensor_by_name("convs/conv_1/Conv/weight:0")
-#print("weight:{}\n bias:{}".format(w,b))
+# b = tf.get_default_graph().get_tensor_by_name("convs/conv_1/Conv/biases:0")
+# w = tf.get_default_graph().get_tensor_by_name("convs/conv_1/Conv/weights:0")
+# #print("weight:{}\n bias:{}".format(w,b))
+# model.sess.run(tf.print(w))
+# for tv in tf.trainable_variables():
+#     print (tv.name)
