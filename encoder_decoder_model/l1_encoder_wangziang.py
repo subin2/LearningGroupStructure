@@ -99,18 +99,28 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         :param padding:
         :return:
         """
+
+
         w_init = tf.truncated_normal_initializer(stddev=self._std)
         b_init = tf.truncated_normal_initializer(stddev=self._std)
         with tf.variable_scope(name):
-            conv = tf.contrib.layers.conv2d(inputs=input_tensor,
-                                            num_outputs=out_dims,
-                                            kernel_size=[k_size[0], k_size[1]],
-                                            weights_initializer=w_init,
-                                            biases_initializer=b_init,
-                                            stride=stride,
-                                            padding=padding,
-                                            activation_fn=tf.nn.relu,
-                                            weights_regularizer=regularizer)
+            if regularizer is None:
+                conv = self.conv2d(input_data=input_tensor,
+                                   w_init=weight, b_init=biases,
+                                   out_channel=out_dims,
+                                   kernel_size=k_size, stride=stride,
+                                   use_bias=False, padding=padding, name='conv')
+            else:
+                conv = tf.contrib.layers.conv2d(inputs=input_tensor,
+                                                num_outputs=out_dims,
+                                                kernel_size=[k_size[0], k_size[1]],
+                                                weights_initializer=w_init,
+                                                biases_initializer=b_init,
+                                                stride=stride,
+                                                padding=padding,
+                                                activation_fn=tf.nn.relu,
+                                                weights_regularizer=regularizer)
+
             # conv = self.conv2d(input_data=input_tensor,
             #                    w_init=weight, b_init=biases,
             #                    out_channel=out_dims,
@@ -163,10 +173,15 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         w_init = tf.truncated_normal_initializer(stddev=self._std)
         b_init = tf.truncated_normal_initializer(stddev=self._std)
         with tf.variable_scope(name):
-            network = self.fully_connect(input_data=input_tensor, out_dim=out_dims, w_init=w_init, b_init=b_init,
-                                         name=name,
-                                         regularizer=regularizer,
-                                         use_bias=use_bias)
+            if regularizer is None:
+                network = self.fully_connect(input_data=input_tensor, out_dim=out_dims, name='fc',
+                                             use_bias=use_bias)
+            else:
+                network = self.fully_connect(input_data=input_tensor, out_dim=out_dims, w_init=w_init, b_init=b_init,
+                                             name=name,
+                                             regularizer=regularizer,
+                                             use_bias=use_bias)
+
             # network = self.fully_connect(input_data=input_tensor, out_dim=out_dims, name='fc',
             #                              use_bias=use_bias)
 
@@ -483,7 +498,8 @@ if __name__ == '__main__':
     optimizer = tf.train.RMSPropOptimizer
     l_rate = 0.0001
     std = 0.05
-    regular_scale = 0.001
+    regular_scale = 0.5
+    # regular_scale = 0.001
     keep_probs = None
 
     num_epochs = 10
