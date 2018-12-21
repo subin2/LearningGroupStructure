@@ -7,6 +7,9 @@
 """
 packing CNN-l1
 """
+#!/usr/bin/env python
+# coding=utf-8
+
 from collections import OrderedDict
 
 import tensorflow as tf
@@ -28,7 +31,8 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
                  l_rate=0.001, l_step=1e15, l_decay=1.0, weight_decay_rate=0.5,
                  use_bn=False,
                  loss_func=None,
-                 keep_probs=None
+                 keep_probs=None,
+                 std=0.01, regular_scale=0.0
                  ):
         """
         :param loss_func: loss function
@@ -53,6 +57,9 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         self._x = tf.placeholder(tf.float32, shape=inputs, name='x')  # [batch_size, width, height, depth]
         self._y = tf.placeholder(tf.float32, shape=[inputs[0], feed_forwards[-1]], name='y')  # [batch_size, num]
         self.keep_probs_values = keep_probs
+        self._std = std
+        # L1 正则化
+        self._regularizer = tf.contrib.layers.l1_regularizer(regular_scale, scope=None)
         self.output = None
         self.output_layer = None
 
@@ -61,7 +68,7 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         self.keep_probs = tf.placeholder(tf.float32, [len(self.keep_probs_values)], name='keep_probs')
 
         self.session_conf = tf.ConfigProto()
-        self.session_conf.gpu_options.allow_growth = False
+        self.session_conf.gpu_options.allow_growth = True
         self.sess = tf.InteractiveSession(config=self.session_conf)
 
         self.global_step = tf.Variable(0, trainable=False)
@@ -80,7 +87,7 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         print('Done L1Encoder.')
 
     def _conv_stage(self, input_tensor, k_size, out_dims, name, layer_count,
-                    stride=1, padding='SAME', weight=None, biases=None, use_pool=True):
+                    stride=1, padding='SAME', weight=None, biases=None, regularizer=None):
         """
         packing convolution function and activation function
 
@@ -92,12 +99,23 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         :param padding:
         :return:
         """
+        w_init = tf.truncated_normal_initializer(stddev=self._std)
+        b_init = tf.truncated_normal_initializer(stddev=self._std)
         with tf.variable_scope(name):
-            conv = self.conv2d(input_data=input_tensor,
-                               w_init=weight, b_init=biases,
-                               out_channel=out_dims,
-                               kernel_size=k_size, stride=stride,
-                               use_bias=False, padding=padding, name='conv')
+            conv = tf.contrib.layers.conv2d(inputs=input_tensor,
+                                            num_outputs=out_dims,
+                                            kernel_size=[k_size[0], k_size[1]],
+                                            weights_initializer=w_init,
+                                            biases_initializer=b_init,
+                                            stride=stride,
+                                            padding=padding,
+                                            activation_fn=tf.nn.relu,
+                                            weights_regularizer=regularizer)
+            # conv = self.conv2d(input_data=input_tensor,
+            #                    w_init=weight, b_init=biases,
+            #                    out_channel=out_dims,
+            #                    kernel_size=k_size, stride=stride,
+            #                    use_bias=False, padding=padding, name='conv')
             if self._use_bn:
                 conv = self.layer_bn(input_data=conv, is_training=self._is_training, name='bn')
 
@@ -133,7 +151,7 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
 
         return conv
 
-    def _full_connected_stage(self, input_tensor, out_dims, name, use_bias=False, use_relu=True):
+    def _full_connected_stage(self, input_tensor, out_dims, name, use_bias=False, use_relu=True, regularizer=None):
         """
 
         :param input_tensor:
@@ -142,9 +160,15 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         :param use_bias:
         :return:
         """
+        w_init = tf.truncated_normal_initializer(stddev=self._std)
+        b_init = tf.truncated_normal_initializer(stddev=self._std)
         with tf.variable_scope(name):
-            network = self.fully_connect(input_data=input_tensor, out_dim=out_dims, name='fc',
+            network = self.fully_connect(input_data=input_tensor, out_dim=out_dims, w_init=w_init, b_init=b_init,
+                                         name=name,
+                                         regularizer=regularizer,
                                          use_bias=use_bias)
+            # network = self.fully_connect(input_data=input_tensor, out_dim=out_dims, name='fc',
+            #                              use_bias=use_bias)
 
             if use_bias:
                 network = self.layer_bn(input_data=network, is_training=self._is_training, name='bn')
@@ -162,7 +186,8 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         with tf.name_scope('conv' + str(layer_count + 1)):
             layer = self._conv_stage(input_tensor=self._x, k_size=self._weight_size[layer_count],
                                      out_dims=self._weight_size[layer_count][-1],
-                                     name='conv_' + str(layer_count+1), layer_count=layer_count)
+                                     name='conv_' + str(layer_count + 1), layer_count=layer_count,
+                                     regularizer=self._regularizer)
             self.convs.append(layer)
             print('    {:{length}} : {}'.format('conv' + str(layer_count + 1), layer, length=12))
             layer_count += 1
@@ -170,7 +195,8 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         for i in range(layer_count, len(self._conv)):
             layer = self._conv_stage(input_tensor=self.convs[layer_count - 1], k_size=self._weight_size[layer_count],
                                      out_dims=self._weight_size[layer_count][-1],
-                                     name='conv_' + str(layer_count+1), layer_count=layer_count)
+                                     name='conv_' + str(layer_count + 1), layer_count=layer_count,
+                                     regularizer=self._regularizer)
             self.convs.append(layer)
             print('    {:{length}} : {}'.format('conv' + str(layer_count + 1), layer, length=12))
             layer_count += 1
@@ -192,7 +218,8 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
             if layer_count == 4:
                 # full connected 1
                 network = self._full_connected_stage(input_tensor=network, out_dims=feed_forwards[-2],
-                                                     name="full-connected-1", use_bias=True)
+                                                     name="full-connected-1", use_bias=True,
+                                                     regularizer=self._regularizer)
                 self.forwards.append(network)
                 layer_count += 1
                 print('    {:{length}} : {}'.format('feed_forward' + str(f + 1), network, length=12))
@@ -200,7 +227,8 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
             else:
                 # full connected 2
                 network = self._full_connected_stage(input_tensor=network, out_dims=feed_forwards[-1],
-                                                     name="full-connected-2", use_bias=True, use_relu=False)
+                                                     name="full-connected-2", use_bias=True, use_relu=False,
+                                                     regularizer=self._regularizer)
 
                 self.output = network
                 self.output_layer = network
@@ -247,7 +275,7 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         # sums, opt, cost = self.sess.run((self.summaries, self.optimize, self._cost),
         #                                      feed_dict=train_feed_dict
         #                                      )
-        return cost,accuracy
+        return cost, accuracy
 
     def test(self, data, target):
         test_feed_dict = {self._x: data}
@@ -454,9 +482,11 @@ if __name__ == '__main__':
 
     optimizer = tf.train.RMSPropOptimizer
     l_rate = 0.0001
+    std = 0.05
+    regular_scale = 0.001
     keep_probs = None
 
-    num_epochs = 2
+    num_epochs = 10
     # num_epochs = 2
     train_batch_num = train_data.shape[0] / batch_size
     print("train_batch_num: %f", train_batch_num)
@@ -473,13 +503,16 @@ if __name__ == '__main__':
     """
     start_time = time.time()
 
-    model = L1Encoder(weight_size=weight_size, pool_size=pool_size,
+    model = L1Encoder(weight_size=weight_size,
+                      pool_size=pool_size,
                       inputs=inputs,
                       conv=conv,
                       feed_forwards=feed_forwards,
                       loss_func=err_func,
                       l_rate=l_rate,
                       optimizer=optimizer,
+                      regular_scale=regular_scale,
+                      std=std,
                       )
     print('Done model. {:.3f}s taken.'.format(time.time() - start_time))
 
@@ -520,7 +553,7 @@ if __name__ == '__main__':
             accuracy += model.sess.run(
                 tf.reduce_mean(tf.cast(tf.equal(tf.argmax(model.output_layer, 1), tf.argmax(model._y, 1)), tf.float32)),
                 feed_dict={model._x: test_in, model._y: test_target, model.keep_probs: keep_probs_values})
-        # print'accuracy: {}'.format(accuracy/test_batch_num)
+        print('accuracy: {}'.format(accuracy/test_batch_num))
         return accuracy / test_batch_num
 
 
@@ -532,21 +565,28 @@ if __name__ == '__main__':
     for epoch in range(num_epochs):
         start_time = time.time()
         loss = 0
-        err = 0
+        accuracy = 0
+        train_test_data = None
+        train_test_label = None
         for batch in iterate_minibatches(inputs=train_data, targets=train_label, batchsize=batch_size):
             train_in, train_target = batch
+            train_test_data = train_in
+            train_test_label = train_target
             # train_in = train_in[:,np.newaxis,:,np.newaxis]
-            loss_ , accuracy = model.train(train_in, train_target, profile)
+            loss_, accuracy = model.train(train_in, train_target, profile)
+            # loss_ = model.train(train_in, train_target, profile)
+            # prediction = model.sess.run(model.prediction, feed_dict=train_feed_dict)
+            # accuracy = model.get_accuracy(prediction, target)
             # print(loss_)
             profile = False
             loss += loss_
 
         train_loss.append(loss / train_batch_num)
-        train_err.append(err / train_batch_num)
+        # train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
         train_accuracy.append(accuracy)
         # train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
-        train_history.loc[epoch] = [epoch + 1, train_loss[-1], train_err[-1],
-                                    time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
+        # train_history.loc[epoch] = [epoch + 1, train_loss[-1], train_err[-1],
+        #                             time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
 
         if (epoch + 1) % save_freq == 0:
             w_mask_pass = []
@@ -560,6 +600,7 @@ if __name__ == '__main__':
         if (epoch + 1) in test_epoch:
             test_accuracy.append(test(test_data, test_label, batch_size, model, test_batch_num))
             train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
-            test_history.loc[test_count] = [epoch + 1, train_accuracy[-1], test_accuracy[-1],
-                                            time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
+            # test_history.loc[test_count] = [epoch + 1, train_accuracy[-1], test_accuracy[-1],
+            #                                 time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
             test_count += 1
+            print("test accuracy:   {:.2f}%".format(test_accuracy[-1] * 100))
