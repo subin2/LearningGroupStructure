@@ -57,7 +57,7 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         self.output_layer = None
 
         if keep_probs == None:
-            self.keep_probs_values = [1.0 for i in range(len(conv)+len(feed_forwards)-1)]
+            self.keep_probs_values = [1.0 for i in range(len(conv) + len(feed_forwards) - 1)]
         self.keep_probs = tf.placeholder(tf.float32, [len(self.keep_probs_values)], name='keep_probs')
 
         self.session_conf = tf.ConfigProto()
@@ -80,7 +80,7 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         print('Done L1Encoder.')
 
     def _conv_stage(self, input_tensor, k_size, out_dims, name, layer_count,
-                    stride=1, padding='SAME', weight=None, biases=None):
+                    stride=1, padding='SAME', weight=None, biases=None, use_pool=True):
         """
         packing convolution function and activation function
 
@@ -98,16 +98,40 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
                                out_channel=out_dims,
                                kernel_size=k_size, stride=stride,
                                use_bias=False, padding=padding, name='conv')
-
             if self._use_bn:
                 conv = self.layer_bn(input_data=conv, is_training=self._is_training, name='bn')
 
             conv = self.relu(input_data=conv, name='relu')
             # pool stage
-            pool = self.max_pooling(input_data=conv, kernel_size=2,
+            conv = self.max_pooling(input_data=conv, kernel_size=2,
                                     stride=2, name='pool' + str(layer_count))
+            # if (use_pool):
+            #     conv = self.relu(input_data=input_tensor, name='relu')
+            #     # pool stage
+            #     conv = self.max_pooling(input_data=conv, kernel_size=2,
+            #                             stride=2, name='pool' + str(layer_count))
+            #     conv = self.conv2d(input_data=conv,
+            #                        w_init=weight, b_init=biases,
+            #                        out_channel=out_dims,
+            #                        kernel_size=k_size, stride=stride,
+            #                        use_bias=False, padding=padding, name='conv')
+            #
+            #     if self._use_bn:
+            #         conv = self.layer_bn(input_data=conv, is_training=self._is_training, name='bn')
+            #
+            #
+            # else:
+            #     conv = self.relu(input_data=input_tensor, name='relu')
+            #     conv = self.conv2d(input_data=conv,
+            #                        w_init=weight, b_init=biases,
+            #                        out_channel=out_dims,
+            #                        kernel_size=k_size, stride=stride,
+            #                        use_bias=False, padding=padding, name='conv')
+            #
+            #     if self._use_bn:
+            #         conv = self.layer_bn(input_data=conv, is_training=self._is_training, name='bn')
 
-        return pool
+        return conv
 
     def _full_connected_stage(self, input_tensor, out_dims, name, use_bias=False, use_relu=True):
         """
@@ -120,7 +144,7 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         """
         with tf.variable_scope(name):
             network = self.fully_connect(input_data=input_tensor, out_dim=out_dims, name='fc',
-                                    use_bias=use_bias)
+                                         use_bias=use_bias)
 
             if use_bias:
                 network = self.layer_bn(input_data=network, is_training=self._is_training, name='bn')
@@ -132,12 +156,13 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
     def build_model(self):
 
         print('    {:{length}} : {}'.format('x', self._x, length=12))
+        # pool_input = self.max_pooling(input_data=self._x, kernel_size=2, stride=2, name='pool_input')
         layer_count = 0
         self.convs = []
         with tf.name_scope('conv' + str(layer_count + 1)):
             layer = self._conv_stage(input_tensor=self._x, k_size=self._weight_size[layer_count],
                                      out_dims=self._weight_size[layer_count][-1],
-                                     name='conv_' + str(layer_count), layer_count=layer_count)
+                                     name='conv_' + str(layer_count+1), layer_count=layer_count)
             self.convs.append(layer)
             print('    {:{length}} : {}'.format('conv' + str(layer_count + 1), layer, length=12))
             layer_count += 1
@@ -145,11 +170,18 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         for i in range(layer_count, len(self._conv)):
             layer = self._conv_stage(input_tensor=self.convs[layer_count - 1], k_size=self._weight_size[layer_count],
                                      out_dims=self._weight_size[layer_count][-1],
-                                     name='conv_' + str(layer_count), layer_count=layer_count)
+                                     name='conv_' + str(layer_count+1), layer_count=layer_count)
             self.convs.append(layer)
             print('    {:{length}} : {}'.format('conv' + str(layer_count + 1), layer, length=12))
             layer_count += 1
 
+        # with tf.name_scope('conv' + str(layer_count + 1)):
+        #     layer = self._conv_stage(input_tensor=layer, k_size=self._weight_size[layer_count],
+        #                              out_dims=self._weight_size[layer_count][-1],
+        #                              name='conv_' + str(layer_count), layer_count=layer_count)
+        #     self.convs.append(layer)
+        #     print('    {:{length}} : {}'.format('conv' + str(layer_count + 1), layer, length=12))
+        #     layer_count += 1
         # 64*512
         network = tf.reshape(layer, shape=[-1, self.feed_forwards[0]])
         self.flatten = network
@@ -185,6 +217,8 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         else:
             self.optimizer = optimizer(self._l_rate)
         self.optimize = self.optimizer.minimize(self._cost, global_step=self._global_step)
+        # softmax
+        self.prediction = tf.nn.softmax(logits=self.output_layer)
 
     def freeze(self):
         if not self._frozen:
@@ -206,12 +240,14 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
             return sums, cost, err
         # sums = self.sess.run(self.summaries,feed_dict=train_feed_dict)
         opt = self.sess.run(self.optimize, feed_dict=train_feed_dict)
-        cost = self.sess.run(self._cost,feed_dict=train_feed_dict)
+        cost = self.sess.run(self._cost, feed_dict=train_feed_dict)
+        prediction = self.sess.run(self.prediction, feed_dict=train_feed_dict)
+        accuracy = self.get_accuracy(prediction, target)
 
         # sums, opt, cost = self.sess.run((self.summaries, self.optimize, self._cost),
         #                                      feed_dict=train_feed_dict
         #                                      )
-        return cost
+        return cost,accuracy
 
     def test(self, data, target):
         test_feed_dict = {self._x: data}
@@ -222,6 +258,12 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
                                   feed_dict=test_feed_dict
                                   )
         return cost, err
+
+    def get_accuracy(self, logits, targets):
+        batch_predictions = np.argmax(logits, axis=1)
+        target = np.argmax(targets, axis=1)
+        num_correct = np.sum(np.equal(batch_predictions, target))
+        return 100 * num_correct / batch_predictions.shape[0]
 
     # def encode(self, input_tensor, name, num_iter=3):
     #     """
@@ -353,6 +395,7 @@ def unpickle(file):
         dict = pickle.load(fo, encoding='latin1')
     return dict
 
+
 def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
     assert inputs.shape[0] == targets.shape[0]
     if shuffle:
@@ -364,6 +407,7 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
         else:
             excerpt = slice(start_idx, start_idx + batchsize)
         yield inputs[excerpt], targets[excerpt]
+
 
 if __name__ == '__main__':
     tf.reset_default_graph()
@@ -460,6 +504,7 @@ if __name__ == '__main__':
     train_accuracy = []
     test_accuracy = []
 
+
     # ret = model.encode(a, name='encode')
     # for layer_name, layer_info in ret.items():
     #     print("layer name: {:s} shape: {}".format(layer_name, layer_info['shape']))
@@ -491,19 +536,19 @@ if __name__ == '__main__':
         for batch in iterate_minibatches(inputs=train_data, targets=train_label, batchsize=batch_size):
             train_in, train_target = batch
             # train_in = train_in[:,np.newaxis,:,np.newaxis]
-            loss_ = model.train(train_in, train_target, profile)
-            print(loss_)
+            loss_ , accuracy = model.train(train_in, train_target, profile)
+            # print(loss_)
             profile = False
             loss += loss_
 
         train_loss.append(loss / train_batch_num)
         train_err.append(err / train_batch_num)
-        train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
+        train_accuracy.append(accuracy)
+        # train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
         train_history.loc[epoch] = [epoch + 1, train_loss[-1], train_err[-1],
                                     time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
 
         if (epoch + 1) % save_freq == 0:
-
             w_mask_pass = []
 
             param_history.loc[epoch / save_freq] = [epoch + 1] + w_mask_pass + [
