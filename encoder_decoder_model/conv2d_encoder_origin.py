@@ -12,7 +12,7 @@ import tensorflow as tf
 
 class conv2d(object):
     def __init__(self, input, weight_size, strides=[1, 1, 1, 1], padding='SAME', pool=None, pool_size=4,
-                 nonlinearity=None,
+                 activation_func=None,
                  use_dropout=True, keep_prob=1.0, use_batchnorm=True, std=0.01, offset=1e-10, scale=1, epsilon=1e-10,
                  name='conv2d_default'):
         with tf.variable_scope(name):
@@ -24,8 +24,8 @@ class conv2d(object):
                 batch_mean, batch_var = tf.nn.moments(network, [0])  # ,1,2])
                 network = tf.nn.batch_normalization(network, batch_mean, batch_var, offset=offset, scale=scale,
                                                     variance_epsilon=epsilon, name=name)
-            if nonlinearity != None:
-                network = nonlinearity(network, name=name)
+            if activation_func != None:
+                network = activation_func(network, name=name)
             if use_dropout:
                 network = tf.nn.dropout(network, keep_prob=keep_prob, name=name)
             if pool == 'p':
