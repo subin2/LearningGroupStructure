@@ -271,6 +271,39 @@ class CNNBaseModel(object):
         return ret
 
     @staticmethod
+    def fully_connect(input_data, out_dim, regularizer=None, w_init=None, b_init=None,
+                      use_bias=True, name=None):
+        """
+        Fully-Connected layer, takes a N>1D tensor and returns a 2D tensor.
+        It is an equivalent of `tf.layers.dense` except for naming conventions.
+        Dense layer implements the operation: outputs = activation(inputs * kernel + bias)
+
+        :param input_data:
+        :param out_dim:
+        :param w_init:
+        :param b_init:
+        :param use_bias:
+        :param name:
+        :return:
+        """
+        shape = input_data.get_shape().as_list()[1:]
+        if None not in shape:
+            input_data = tf.reshape(input_data, [-1, int(np.prod(shape))])
+        else:
+            input_data = tf.reshape(input_data, tf.stack([tf.shape(input_data)[0], -1]))
+
+        # if w_init is None:
+            # w_init = tf.contrib.layers.variance_scaling_initializer(distribution="normal")
+        if b_init is None:
+            b_init = tf.constant_initializer()
+
+        ret = tf.layers.dense(inputs=input_data, activation=lambda x: tf.identity(x, name='output'),  # activation???
+                              use_bias=use_bias, name=name,
+                              kernel_initializer=w_init, kernel_regularizer=regularizer, bias_initializer=b_init,
+                              trainable=True, units=out_dim)
+        return ret
+
+    @staticmethod
     def layer_bn(input_data, is_training, name):
         """
 
