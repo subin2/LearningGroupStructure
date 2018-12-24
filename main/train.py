@@ -64,24 +64,25 @@ batch_size = 64
 inputs = [batch_size, train_data.shape[1], train_data.shape[2], train_data.shape[3]]
 conv = [128, 128, 128, 128]  # conv_base, conv, conv
 iter = [0, 0, 0, 0]
-pool = ['p', 'p', 'p', 'p']
+#pool = ['p', 'p', 'p', 'p']
 pool_size = [[2, 2], [2, 2], [2, 2], [2, 2]]
 weight_size = [[3, 3, inputs[-1], conv[0]], [3, 3, conv[0], conv[1]], [3, 3, conv[1], conv[2]],
                [3, 3, conv[2], conv[3]]]
 feed_forwards = [512, 128, 10]
 outputs = [batch_size, feed_forwards[-1]]
 nonlinearity = tf.nn.relu
-err_func = tf.nn.softmax_cross_entropy_with_logits
+#err_func = tf.nn.softmax_cross_entropy_with_logits
 
 keep_probs = None
 use_dropout = not (keep_probs == None or keep_probs == [1.0 for i in range(len(keep_probs))])
 use_batchnorm = False
 
 optimizer = tf.train.RMSPropOptimizer
+#optimizer = tf.train.FtrlOptimizer
 l_rate = 0.0001
 std = 0.05
 
-num_epochs = 100
+num_epochs = 1
 train_batch_num = train_data.shape[0] / batch_size
 # valid_batch_num = valid_data.shape[0] / batch_size
 test_batch_num = test_data.shape[0] / batch_size
@@ -102,7 +103,7 @@ if not os.path.exists(data_path):
     print('creating difectory {}'.format(data_path))
     os.mkdir(os.path.join(data_path))
 
-save_path = os.path.join(data_path, 'l1cnn-clvar-freeze')
+save_path = os.path.join(data_path, 'l1cnn')
 if not os.path.exists(save_path):
     print('creating difectory {}'.format(save_path))
     os.mkdir(os.path.join(save_path))
@@ -181,8 +182,6 @@ test_epoch = [frozen_epoch, 300, num_epochs]
 
 train_history = pd.DataFrame(index=np.arange(0, num_epochs),
                              columns=['epoch', 'loss', 'err', 'Q', 'timestamp'])
-valid_history = pd.DataFrame(index=np.arange(0, num_epochs/valid_freq),
-                             columns=['epoch', 'loss', 'err', 'Q', 'timestamp'])
 test_history = pd.DataFrame(index=np.arange(0, len(test_epoch)),
                              columns=['epoch', 'train accuracy', 'test accuracy', 'timestamp'])
 
@@ -195,14 +194,14 @@ valid_err=[]
 train_accuracy=[]
 test_accuracy=[]
 
-seismic_rgb = cm.get_cmap(plt.get_cmap('seismic'))(np.linspace(0.0, 1.0, 100))[:, :3]
-print(seismic_rgb.shape)
-
-seismic_gray = np.mean(seismic_rgb,axis=1)
-seismic_gray = np.stack([seismic_gray, seismic_gray, seismic_gray], axis=1)
-print(seismic_gray.shape)
-
-seismic_gray = colors.ListedColormap(seismic_gray, name='seismic_gray')
+# seismic_rgb = cm.get_cmap(plt.get_cmap('seismic'))(np.linspace(0.0, 1.0, 100))[:, :3]
+# print(seismic_rgb.shape)
+#
+# seismic_gray = np.mean(seismic_rgb,axis=1)
+# seismic_gray = np.stack([seismic_gray, seismic_gray, seismic_gray], axis=1)
+# print(seismic_gray.shape)
+#
+# seismic_gray = colors.ListedColormap(seismic_gray, name='seismic_gray')
 
 profile=False
 first=True
@@ -230,7 +229,6 @@ for epoch in tqdm(range(num_epochs)):
     accuracy = 0
     for batch in iterate_minibatches(inputs=train_data, targets=train_label, batchsize=batch_size):
         train_in, train_target = batch
-        #train_in = train_in[:,np.newaxis,:,np.newaxis]
         loss_,accuracy_ = model.train(data=train_in,target=train_target)
         if profile:
             fetched_timeline = timeline.Timeline(model.run_metadata.step_stats)
@@ -239,43 +237,20 @@ for epoch in tqdm(range(num_epochs)):
                 f.write(chrome_trace)
         #if first:
             #model.writer.add_summary(tmp_sum, epoch)
+        #model.writer.add_summary(sum_, epoch)
         profile=False
         loss +=loss_
         accuracy += accuracy_
-        #err += err_
-    #model.writer.add_summary(tmp_sum, epoch)#model.global_step.eval())
+
+   # model.writer.add_summary(sum_, epoch)
     train_loss.append(loss/train_batch_num)
     train_accuracy.append(accuracy/train_batch_num)
     train_err.append(err/train_batch_num)
-    #train_Q.append(Q/train_batch_num)
-    # train_history.loc[epoch] = [epoch+1, train_loss[-1], train_err[-1],
-    #                             time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
 
-    # if (epoch+1)% save_freq == 0:
-    #     model.save(os.path.join(data_save_path, model_name, str(epoch+1)+'.ckpt'))
-    #     train_history.to_csv(os.path.join(save_path, model_name, str(num_epochs)+"epochs-train_history.csv"))
-    #     #valid_history.to_csv(os.path.join(save_path, model_name, str(num_epochs)+"epochs-valid_history.csv"))
-    #
-    #     w_mask_pass = []
-    #
-    #     param_history.loc[epoch/save_freq] = [epoch+1] + w_mask_pass +[time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
-    #     param_history.to_csv(os.path.join(save_path, model_name, str(num_epochs)+"epochs-param_history.csv"))
     print("Epoch {} of {} took {:.3f}s".format(epoch + 1, num_epochs, time.time() - start_time))
     print("  training loss:    {:.6f}".format(train_loss[-1]))
     print("  training accuracy:    {:.2f}%".format(train_accuracy[-1]))
-    #print("  training err:     {:.6f}".format(train_err[-1]))
 
-    # if epoch>30:
-    #     if (train_Q[-1] - train_Q[-2])/train_Q[-2] <0 :
-    #         Q_conv_count += 1
-    #     else:
-    #         Q_conv_count = 0
-    #     if Q_conv_count>=3:
-    #         if not model.frozen:
-    #             model.freeze()
-    #             frozen_epoch = epoch+1
-    #             test_epoch[0] = frozen_epoch
-    #             print('##### Model frozen at epoch '+str(epoch+1)+'#####')
     if (epoch+1) in test_epoch:
         test_accuracy.append(test(test_data, test_label, batch_size, model, test_batch_num))
         train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
@@ -287,8 +262,6 @@ for epoch in tqdm(range(num_epochs)):
 
 
 
-print(os.path.join(save_path,model_name))
-print('Frozen at '+str(frozen_epoch))
 params_num = model.get_num_params()
 print("params_num:  {}".format(params_num))
 
@@ -300,3 +273,5 @@ print("params_num:  {}".format(params_num))
 # model.sess.run(tf.print(w))
 # for tv in tf.trainable_variables():
 #     print (tv.name)
+
+model.get_num_params()

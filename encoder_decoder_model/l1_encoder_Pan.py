@@ -14,9 +14,17 @@ import numpy as np
 import os
 
 
+def device_for_node(n):
+  if n.type == "MatMul":
+    return "/gpu:0"
+  else:
+    return "/cpu:0"
+
 class L1Encoder(cnn_base_model.CNNBaseModel):
     def __init__(self,phase,input_tensor,feed_forwards,optimizer,l_rate,l_step,l_decay,use_bn,keep_probs,std=0.01,regular_scale=0.0,use_bias = True):
         super(L1Encoder, self).__init__()
+
+
         self._train_phase = tf.constant('train', dtype=tf.string)
         self._test_phase = tf.constant('test', dtype=tf.string)
         self._phase = phase
@@ -39,9 +47,11 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         self.target = tf.placeholder(tf.float32, shape=[input_tensor[0],feed_forwards[-1]], name='target')
         self.layers = []
 
-        self.session_conf = tf.ConfigProto()
+        self.session_conf = tf.ConfigProto(allow_soft_placement=True)
         self.sess = tf.InteractiveSession(config=self.session_conf)
-        self.saver = tf.train.Saver(max_to_keep=1)
+        self.saver = tf.train.Saver(max_to_keep=10000)
+        self.writer = tf.summary.FileWriter(os.path.join("./", "train_log"), self.sess.graph)
+        self.summaries = tf.summary.merge_all()
 
 
         self._build_model(input_tensor=self.data)
@@ -52,6 +62,7 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
             self.optimizer = tf.train.GradientDescentOptimizer(self.l_rate)
         else:
             self.optimizer = optimizer(self.l_rate)
+        #self.optimizer = optimizer(learning_rate=self.l_rate,l1_regularization_strength=regular_scale)
         self.optimize = self.optimizer.minimize(self.loss, global_step=self.global_step)
 
         self.sess.run(tf.global_variables_initializer())
@@ -87,6 +98,14 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
                                             padding = padding,
                                             activation_fn=tf.nn.relu,
                                             weights_regularizer=regularizer)
+            # conv = tf.contrib.layers.conv2d(inputs=input_tensor,
+            #                                 num_outputs=out_dims,
+            #                                 kernel_size=[k_size, k_size],
+            #                                 weights_initializer=tf.truncated_normal_initializer(stddev=self.std),
+            #                                 biases_initializer=b_init,
+            #                                 stride=stride,
+            #                                 padding=padding,
+            #                                 activation_fn=tf.nn.relu)
 
             if(self._use_bn):
                 bn = self.layer_bn(input_data=conv, is_training=self._is_training, name='bn')
@@ -102,6 +121,8 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
             b_init = tf.truncated_normal_initializer(stddev=self.std)
             fc = self.fully_connect(input_data=input_tensor, out_dim=out_dims, w_init=w_init,b_init=b_init,name=name,regularizer=regularizer,
                                     use_bias=use_bias)
+            # fc = self.fully_connect(input_data=input_tensor, out_dim=out_dims, w_init=w_init, b_init=b_init, name=name,
+            #                         use_bias=use_bias)
             if(self._use_bn):
                 fc = self.layer_bn(input_data=fc, is_training=self._is_training, name='bn')
                 fc = self.relu(input_data=fc, name='relu')
@@ -117,6 +138,8 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         with tf.variable_scope('convs'):
             #pool_input = self.max_pooling(input_data=input_tensor, kernel_size=2, stride=2, name='pool_input')
             conv_1 = self._conv_stage(input_tensor=input_tensor, k_size=3,out_dims=128, regularizer=self.regularizer,name='conv_1')
+            #conv_1 = self._conv_stage(input_tensor=input_tensor, k_size=3, out_dims=128,
+            #                          name='conv_1')
             pool_1 = self.max_pooling(input_data=conv_1, kernel_size=2, stride=2, name='pool1')
             self.layers.append(conv_1)
             self.layers.append(pool_1)
@@ -124,6 +147,8 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
             print("layer name: {:s} shape: {}".format('conv_1', pool_1))
 
             conv_2 = self._conv_stage(input_tensor=pool_1, k_size=3, out_dims=128,regularizer=self.regularizer,name='conv_2')
+            #conv_2 = self._conv_stage(input_tensor=pool_1, k_size=3, out_dims=128,
+            #                          name='conv_2')
             pool_2 = self.max_pooling(input_data=conv_2, kernel_size=2, stride=2, name='pool2')
             self.layers.append(conv_2)
             self.layers.append(pool_2)
@@ -201,8 +226,11 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         return 100* num_correct / batch_predictions.shape[0]
 
     def get_num_params(self):
+
         num_params = np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()])
         return num_params
+
+
 
     def save(self, save_path='./model/model.ckpt'):
         if(~os.path.exists('./model')):
