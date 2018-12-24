@@ -14,6 +14,13 @@ from sklearn.datasets import make_biclusters
 
 class BaseCoCluster:
     def __init__(self, w, threshold_factor=0.00001, row_cluster_num=2, column_cluster_num=2):
+        '''
+        init the co-cluster algorithm class
+        :param w: the matrix to be co-clustered
+        :param threshold_factor:
+        :param row_cluster_num:
+        :param column_cluster_num:
+        '''
         if isinstance(w, np.ndarray) and len(w.shape) == 3:
             row_num, col_num, times = w.shape
             self.w = w
@@ -112,6 +119,7 @@ class BaseCoCluster:
 
     def co_cluster_one(self, A):
         '''
+        do cluster for a matrix ,for example 3 * 3
         do cluster for the matrix's row and column at the same time
         :param A: the matrix to be clustered
         :return:  the clustered matrix
@@ -172,6 +180,7 @@ class BaseCoCluster:
         result = np.dot(R_one, row_mean_max_matrix)
         return result
 
+    # get time cost
     def get_run_time(self):
         return self.run_time
 
@@ -181,7 +190,9 @@ class BaseCoCluster:
         clustered_w = self.co_cluster_one(np.matrix(self.w[:, :, 0]))
         for i in range(1, self.t):
             clustered_w = np.concatenate((clustered_w, self.co_cluster_one(np.matrix(self.w[:, :, i]))), axis=0)
-        result = clustered_w.reshape(self.m, self.n, self.t)
+        result = clustered_w.reshape(self.t, self.m, self.n)
+        # arrange the array to m * n *t, for example 3 * 3* 128
+        result = result.transpose((1, 2, 0))
         print(result)
         # time cost
         end_time = datetime.datetime.now()
@@ -193,22 +204,23 @@ class BaseCoCluster:
 
 if __name__ == '__main__':
     data_pre, rows_pre, columns_pre = make_biclusters(
-        shape=(3, 3), n_clusters=2, noise=0,
+        shape=(6, 4), n_clusters=2, noise=0,
         shuffle=True, random_state=0)
     print(data_pre)
-    data_pre = data_pre.reshape(3,3,1)
-    for i in range(1, 2):
+    # data_pre = data_pre.reshape(3,3,1)
+    for i in range(1, 5):
         data, rows, columns = make_biclusters(
-            shape=(3, 3), n_clusters=2, noise=0,
+            shape=(3, 4), n_clusters=2, noise=0,
             shuffle=True, random_state=0)
         print(data)
-        data = data.reshape(3,3,1)
-        print(data)
-        data_pre = np.hstack((data_pre,data))
-        # data_pre = np.concatenate((data_pre,data),axis= 0)
+        # data = data.reshape(3,3,1)
+        # data_pre = np.hstack((data_pre,data))
+        data_pre = np.concatenate((data_pre, data), axis=0)
 
     print(data_pre)
-    data_pre = data_pre.reshape( 3, 3 , 2)
+    data_pre = data_pre.reshape(6, 3, 4)
+    print(data_pre)
+    data_pre = data_pre.transpose((1, 2, 0))
     print(data_pre)
     baseCoCluster = BaseCoCluster(w=data_pre)
     result = BaseCoCluster.co_cluster(baseCoCluster)
