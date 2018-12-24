@@ -101,6 +101,11 @@ def argmin_r(A, AR, R, i):
                 min_r = r
     return min_r
 
+def col_mean(A, R, C):
+    return R * R.T * A * (np.multiply(C, C))
+
+def row_mean(A,R,C):
+    return (np.multiply(R.T,R.T)) * A * C * C.T
 
 def co_cluster(A, k, l):
     '''
@@ -160,22 +165,37 @@ def co_cluster(A, k, l):
         delta = np.abs(oldobj - objval)
 
     # when co-clustering ended, move the rows and columns according to the clustering result
-    fit_A = A[np.argsort(np.sum(np.array(R.T), axis=0))]
-    fit_A = fit_A[:, np.argsort(np.sum(np.array(C.T), axis=0))]
+    # col_means = col_mean(A,R,C)
+    # col_means_max = np.argmax(col_means,axis = 1)
+    # print(col_means_max)
+    row_means = row_mean(A,R,C)
+    row_means_max_list = np.argmax(row_means,axis=0)
+    row_mean_max_matrix = np.zeros((k,n),dtype= float)
+    for i in range(0,n):
+        row_mean_max_matrix[row_means_max_list[0,i],i] = 1
+    R_one = np.where(R==0,0,1)
+    result =np.dot(R_one,row_mean_max_matrix)
+    # print(result)
+    # print((np.sum(R, axis=0)).T)
+    # R_one = R * ((np.sum(R, axis=0)).T)
+    # print(R_one)
+    # print(row_means_max_list)
+    # fit_A = A[np.argsort(np.sum(np.array(R.T), axis=0))]
+    # fit_A = fit_A[:, np.argsort(np.sum(np.array(C.T), axis=0))]
 
     # time cost
     end_time = datetime.datetime.now()
     run_time = (end_time - start_time).seconds
     print("run cost time:")
     print(run_time)
-    return np.matrix(fit_A)
-
+    # return np.matrix(fit_A)
+    return result
 
 # test
 if __name__ == '__main__':
     data, rows, columns = make_biclusters(
-        shape=(500, 500), n_clusters=10, noise=0,
+        shape=(3, 3), n_clusters=2, noise=0,
         shuffle=True, random_state=0)
     plt.matshow(data)
-    co_cluster(data, 10, 10)
+    co_cluster(data, 2, 2)
     plt.show()
