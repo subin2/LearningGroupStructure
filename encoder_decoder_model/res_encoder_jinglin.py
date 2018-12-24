@@ -300,7 +300,7 @@ if __name__ == '__main__':
     Load dataset
     """
 
-    data_path = './CIFAR-10'
+    data_path = '../CIFAR-10'
 
     one_hot_enc = preprocessing.OneHotEncoder(n_values=10, sparse=False)
     # one_hot_enc = preprocessing.OneHotEncoder(categories=[range(10)], sparse=False)
@@ -372,7 +372,8 @@ if __name__ == '__main__':
                        inputs=inputs,
                        conv=conv,
                        feed_forwards=feed_forwards,
-                       std=std)
+                       std=std,
+                       l_rate=l_rate)
     print('Done model. {:.3f}s taken.'.format(time.time() - start_time))
     valid_freq = 10
     save_freq = 50
