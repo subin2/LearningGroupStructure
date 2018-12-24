@@ -210,8 +210,8 @@ def local_search(matrix_a, matrix_r, matrix_c):
 
     list = []
 
-    for i in range(0, n - 1):
-        for c_ in range(0, l - 1):
+    for i in range(0, n):
+        for c_ in range(0, l):
             # 如果第i行的聚类结果不是c_类，则将其改变到c_类并计算损失函数
             if r(i, matrix_c) != c_:
                 # 改变列聚类矩阵，将i行移入第c_类
@@ -252,12 +252,13 @@ def move_cluster(sor_row, dest_col, ori_matrix_c):
     m_r_dest = math.pow(float(m), -2)
 
     sor_col = 0
-    for i in range(0, len(new_matrix_c[0]) - 1):
-        m = 0
+    for i in range(0, len(new_matrix_c[0])):
+        m = 1
         if new_matrix_c[sor_row][i] != 0:
             m = new_matrix_c[sor_row][i]
             sor_col = i
             break
+
     m_r_sor = math.pow(m, -2)
 
     # 对应数目变化
@@ -265,7 +266,7 @@ def move_cluster(sor_row, dest_col, ori_matrix_c):
     m_r_sor = m_r_sor - 1
 
     # 更新分布矩阵
-    for i in range(0, len(new_matrix_c) - 1):
+    for i in range(0, len(new_matrix_c)):
         if new_matrix_c[i][dest_col] != 0:
             new_matrix_c[i][dest_col] = math.pow(m_r_dest, -0.5)
         if new_matrix_c[i][sor_col] != 0:

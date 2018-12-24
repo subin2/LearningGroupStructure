@@ -7,6 +7,7 @@
 
 import datetime
 import random
+import math
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.datasets import make_biclusters
@@ -177,5 +178,6 @@ if __name__ == '__main__':
         shape=(500, 500), n_clusters=10, noise=0,
         shuffle=True, random_state=0)
     plt.matshow(data)
-    co_cluster(data, 10, 10)
+    fit_A = co_cluster(data, 10, 10)
+    plt.matshow(fit_A)
     plt.show()
