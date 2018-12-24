@@ -98,7 +98,8 @@ test_batch_num = test_data.shape[0] / batch_size
 l_step = 300 * train_batch_num
 l_decay = 0.1
 
-regular_scale=0.001
+# regular_scale=0.001
+regular_scale=0.0
 
 """
 Set Path
@@ -268,13 +269,13 @@ for epoch in range(num_epochs):
     print("  training accuracy:    {:.2f}%".format(train_accuracy[-1]))
     # print("Epoch {} params_count:{}".format(epoch+1,model.sess.run(params_count)))
 
-    # if (epoch+1) in test_epoch:
-    #     test_accuracy.append(test(test_data, test_label, batch_size, model, test_batch_num))
-    #     train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
-    #     test_history.loc[test_count] = [epoch+1, train_accuracy[-1], test_accuracy[-1], time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
-    #     test_count +=1
-    #     test_history.to_csv(os.path.join(save_path, model_name, str(num_epochs)+"epochs-test_history.csv"))
-    #     print("test accuracy:   {:.2f}%".format(test_accuracy[-1] * 100))
+    if (epoch+1) in test_epoch:
+        test_accuracy.append(test(test_data, test_label, batch_size, model, test_batch_num))
+        train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
+        test_history.loc[test_count] = [epoch+1, train_accuracy[-1], test_accuracy[-1], time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
+        test_count +=1
+        test_history.to_csv(os.path.join(save_path, model_name, str(num_epochs)+"epochs-test_history.csv"))
+        print("test accuracy:   {:.2f}%".format(test_accuracy[-1] * 100))
 
 
 
