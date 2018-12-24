@@ -1,3 +1,11 @@
+'''
+@author: Pan
+@software: PyCharm
+@file: train.py
+@time: 2018/12/18 10:41
+@desc:
+    训练
+'''
 import os
 import csv
 import time
@@ -82,7 +90,7 @@ optimizer = tf.train.RMSPropOptimizer
 l_rate = 0.0001
 std = 0.05
 
-num_epochs = 1
+num_epochs = 100
 train_batch_num = train_data.shape[0] / batch_size
 # valid_batch_num = valid_data.shape[0] / batch_size
 test_batch_num = test_data.shape[0] / batch_size
@@ -221,12 +229,16 @@ def test(test_data, test_labels, batch_size, model, test_batch_num):
     # print'accuracy: {}'.format(accuracy/test_batch_num)
     return accuracy/test_batch_num
 
+params_count = 0
+#tensors = [tensor.name for tensor in tf.get_default_graph().as_graph_def().node]
 
-for epoch in tqdm(range(num_epochs)):
+# 训练
+for epoch in range(num_epochs):
     start_time = time.time()
     loss = 0
     err = 0
     accuracy = 0
+
     for batch in iterate_minibatches(inputs=train_data, targets=train_label, batchsize=batch_size):
         train_in, train_target = batch
         loss_,accuracy_ = model.train(data=train_in,target=train_target)
@@ -242,7 +254,11 @@ for epoch in tqdm(range(num_epochs)):
         loss +=loss_
         accuracy += accuracy_
 
-   # model.writer.add_summary(sum_, epoch)
+    # w = tf.get_default_graph().get_tensor_by_name("convs/conv_4/Conv/weights:0")
+    # non_zero = tf.count_nonzero(w)
+    # print("nonzero of weights: {}".format(model.sess.run(non_zero)))
+
+    # model.writer.add_summary(sum_, epoch)
     train_loss.append(loss/train_batch_num)
     train_accuracy.append(accuracy/train_batch_num)
     train_err.append(err/train_batch_num)
@@ -250,28 +266,30 @@ for epoch in tqdm(range(num_epochs)):
     print("Epoch {} of {} took {:.3f}s".format(epoch + 1, num_epochs, time.time() - start_time))
     print("  training loss:    {:.6f}".format(train_loss[-1]))
     print("  training accuracy:    {:.2f}%".format(train_accuracy[-1]))
+    # print("Epoch {} params_count:{}".format(epoch+1,model.sess.run(params_count)))
 
-    if (epoch+1) in test_epoch:
-        test_accuracy.append(test(test_data, test_label, batch_size, model, test_batch_num))
-        train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
-        test_history.loc[test_count] = [epoch+1, train_accuracy[-1], test_accuracy[-1], time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
-        test_count +=1
-        test_history.to_csv(os.path.join(save_path, model_name, str(num_epochs)+"epochs-test_history.csv"))
-        print("test accuracy:   {:.2f}%".format(test_accuracy[-1] * 100))
+    # if (epoch+1) in test_epoch:
+    #     test_accuracy.append(test(test_data, test_label, batch_size, model, test_batch_num))
+    #     train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
+    #     test_history.loc[test_count] = [epoch+1, train_accuracy[-1], test_accuracy[-1], time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
+    #     test_count +=1
+    #     test_history.to_csv(os.path.join(save_path, model_name, str(num_epochs)+"epochs-test_history.csv"))
+    #     print("test accuracy:   {:.2f}%".format(test_accuracy[-1] * 100))
 
 
 
 
-params_num = model.get_num_params()
-print("params_num:  {}".format(params_num))
+# params_num = params_count/num_epochs
+# print("params_num:  {}".format(model.sess.run(params_num)))
 
 #model.save()
 
+
+#model.sess.run(tensors)
 # b = tf.get_default_graph().get_tensor_by_name("convs/conv_1/Conv/biases:0")
-# w = tf.get_default_graph().get_tensor_by_name("convs/conv_1/Conv/weights:0")
-# #print("weight:{}\n bias:{}".format(w,b))
-# model.sess.run(tf.print(w))
+#w = tf.get_default_graph().get_tensor_by_name("convs/conv_1/Conv/weights:0")
+#print("weight:{}\n bias:{}".format(w,b))
+#model.sess.run(tf.print(w))
 # for tv in tf.trainable_variables():
 #     print (tv.name)
 
-model.get_num_params()
