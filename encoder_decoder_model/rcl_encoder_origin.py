@@ -11,12 +11,13 @@ import tensorflow as tf
 from encoder_decoder_model import conv2d_encoder_origin
 
 class RCL(object):
-    def __init__(self, input, weight_size, weight=None, biases=None, strides=[1, 1, 1, 1], padding='SAME', pool='p',
-                 pool_size=[1, 4], num_iter=3,
-                 nonlinearity=None, use_dropout=True, keep_prob=1.0, use_batchnorm=True,
+    def __init__(self, input, weight_size, weight=None, biases=None, strides=[1, 1, 1, 1],
+                 padding='SAME', pool='max_pool', pool_size=[2, 2],
+                 activation_func=None, use_dropout=True, keep_prob=1.0, use_batchnorm=True,
                  std=0.01, offset=1e-10, scale=1, epsilon=1e-10, name='RCL_default'):
         """
-			when num_iter==1, same as conv2d
+			conv2d
+			与cnn-EM中的RCL相比，删除了本次训练中用不到的参数和结构，如num_iter, 及参数pool='c'时的情况
 		"""
         self.pool = pool
         with tf.variable_scope(name):
@@ -26,43 +27,23 @@ class RCL(object):
                 tf.random_normal([weight_size[-1]], stddev=std, dtype=tf.float32)) if biases is None else biases
 
             network = input
-            if num_iter == 0:
-                network = tf.nn.bias_add(
-                    tf.nn.conv2d(input=network, filter=self.weight, strides=strides, padding=padding),
-                    self.biases
-                    )
-                if use_batchnorm:
-                    batch_mean, batch_var = tf.nn.moments(network, [0])  # [0,1,2]
-                    network = tf.nn.batch_normalization(network, batch_mean, batch_var, offset, scale, epsilon,
-                                                        name=name)
-                if nonlinearity != None:
-                    network = nonlinearity(network, name=name)
-            else:
-                for i in range(num_iter):
-                    network = tf.nn.bias_add(
-                        tf.nn.conv2d(input=network, filter=self.weight, strides=strides, padding=padding),
-                        self.biases
-                        )
-                    if use_batchnorm:
-                        batch_mean, batch_var = tf.nn.moments(network, [0])  # [0,1,2]
-                        network = tf.nn.batch_normalization(network, batch_mean, batch_var, offset, scale, epsilon,
-                                                            name=name)
-                    if nonlinearity != None:
-                        network = nonlinearity(network, name=name)
-                    network = tf.add(input, network)
+
+            network = tf.nn.bias_add(
+                tf.nn.conv2d(input=network, filter=self.weight, strides=strides, padding=padding),
+                self.biases
+                )
+
+            if use_batchnorm:
+                batch_mean, batch_var = tf.nn.moments(network, [0])  # [0,1,2]
+                network = tf.nn.batch_normalization(network, batch_mean, batch_var, offset, scale, epsilon,
+                                                    name=name)
+            if activation_func != None:
+                network = activation_func(network, name=name)
+
             if use_dropout:
                 network = tf.nn.dropout(network, keep_prob=keep_prob, name=name)
-            if pool == 'c':
-                # input: [batch, height, width, channel]
-                # kernel: [height, width, in_channels, out_channels]
-                network = conv2d_encoder_origin.conv2d(input=network,
-                                 weight_size=[1, pool_size, weight_size[-1], weight_size[-1]],
-                                 padding='VALID',
-                                 nonlinearity=nonlinearity,
-                                 use_dropout=use_dropout,
-                                 keep_prob=keep_prob,
-                                 name=name + '_convpool')
-            elif pool == 'p':
+
+            if pool == 'max_pool':
                 network = tf.nn.max_pool(value=network,
                                          ksize=[1, pool_size[0], pool_size[1], 1],
                                          strides=[1, pool_size[0], pool_size[1], 1],
@@ -70,8 +51,6 @@ class RCL(object):
             self.result = network
 
     def get_layer(self):
-        if self.pool == 'c':
-            return self.result.get_layer()
         return self.result
 
     def get_conv_layer(self):
