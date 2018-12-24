@@ -98,14 +98,6 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
                                             padding = padding,
                                             activation_fn=tf.nn.relu,
                                             weights_regularizer=regularizer)
-            # conv = tf.contrib.layers.conv2d(inputs=input_tensor,
-            #                                 num_outputs=out_dims,
-            #                                 kernel_size=[k_size, k_size],
-            #                                 weights_initializer=tf.truncated_normal_initializer(stddev=self.std),
-            #                                 biases_initializer=b_init,
-            #                                 stride=stride,
-            #                                 padding=padding,
-            #                                 activation_fn=tf.nn.relu)
 
             if(self._use_bn):
                 bn = self.layer_bn(input_data=conv, is_training=self._is_training, name='bn')
@@ -133,8 +125,6 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
 
     def _build_model(self,input_tensor):
         print("layer name: {:s} shape: {}".format('input', input_tensor))
-
-
         with tf.variable_scope('convs'):
             #pool_input = self.max_pooling(input_data=input_tensor, kernel_size=2, stride=2, name='pool_input')
             conv_1 = self._conv_stage(input_tensor=input_tensor, k_size=3,out_dims=128, regularizer=self.regularizer,name='conv_1')
@@ -226,8 +216,12 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         return 100* num_correct / batch_predictions.shape[0]
 
     def get_num_params(self):
+        #num_params = np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()])
+        num_params = 0
+        b = tf.get_default_graph().get_tensor_by_name("convs/conv_1/Conv/biases:0")
+        w = tf.get_default_graph().get_tensor_by_name("convs/conv_1/Conv/weights:0")
+        num_params = tf.count_nonzero(w, axis=None, keep_dims=False, name=None)
 
-        num_params = np.sum([np.prod(v.get_shape().as_list()) for v in tf.trainable_variables()])
         return num_params
 
 
