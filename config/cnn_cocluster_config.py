@@ -46,6 +46,8 @@ __C.TRAIN.BATCH_SIZE = 64
 
 __C.TRAIN.FEED_FORWARDS = [512, 128, 10]
 
+__C.TRAIN.STD = 0.05
+
 #__C.TRAIN.ITER=[0,0,0,0]
 
 # __C.TRAIN.POOL=['p','p','p','p']

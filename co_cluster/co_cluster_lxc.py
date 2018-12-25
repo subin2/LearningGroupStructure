@@ -1,13 +1,6 @@
-# -*- coding: utf-8 -*-
-# @Time    : 18-12-20
-# @Author  : Wuqiao Chen
-# @Site    : https://github.com/Lokfar
-# @File    : co_cluster_wuqiao.py
-# @IDE     : PyCharm Community Edition
 
 import datetime
 import random
-import math
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.datasets import make_biclusters
@@ -15,7 +8,7 @@ from sklearn.datasets import make_biclusters
 '''
     implementation of the co-cluster algorithm in the paper 'Minimum Sum-Squared Residue Co-clustering 
     of Gene Expression Data'
-    H = A - RR'ACC'
+    H = (I − RRT)A(I − CCT)
     the adjustable parameter is tau
 '''
 
@@ -36,13 +29,28 @@ def initialR_C(m, k):
     cluster_index_sum = np.sum(R, axis=0) ** (-1 / 2)
     return np.matrix(np.multiply(R, cluster_index_sum))
 
+def initialI(t):
+    '''
+    initialize the  matrix I used in co_cluster
+    :param n: the row and column number
+    '''
+    # x, y = map(int, input().split())
+    I = np.zeros((t, t), dtype=float)
+    for i in range(0, t):
+        I[i, i] = 1
+    print(I)
+    return np.matrix(I)
 
-def H2(A, R, C):
+
+def H2(IR, IC, A, R, C):
     '''
         calculate the value || H ||^2, which is the sum-Squared residue of co-clustering result
     '''
-    H1 = R * R.T * A * C * C.T
-    H = A - H1
+    # H1 = R * R.T * A * C * C.T
+    # H = A - H1
+    HR = IR - R * R.T
+    HC = IC - C * C.T
+    H = HR * A * HC
     return np.sum(np.multiply(H, H))
 
 
@@ -50,18 +58,30 @@ def get_tau(A):
     '''
        adjustable parameter, the threshold of ending the co-clustering
     '''
-    return np.sum(np.multiply(A, A)) * 0.00000001
+    return np.sum(np.multiply(A, A)) * 0.001
 
 
-def calAC(A, R, C):
-    return R * R.T * A * C
+def calAC(I, A, R, C):
+    HR = I - R * R.T
+    return HR * A * C
 
 
-def calAR(A, R, C):
-    return R.T * A * C * C.T
+def calAPR(I, A, R, C):
+    HR = I - R * R.T
+    return HR * A
+
+def calAR(I, A, R, C):
+    HC = I - C * C.T
+    return R.T * A * HC
+
+def calAPC(I, A, R, C):
+    HC = I - C * C.T
+    return A * HC
 
 
-def argmin_c(A, AC, C, j):
+
+
+def argmin_c(APR, AC, C, j):
     '''
         choose the nearest cluster for column j
     '''
@@ -71,7 +91,7 @@ def argmin_c(A, AC, C, j):
         c_sum = np.sum(C[:, c])
         if c_sum != 0:
             c_sum = pow(c_sum, -1)
-        H = A[:, j] - c_sum * AC[:, c]
+        H = APR[:, j] - c_sum * AC[:, c]
         HcJ = np.sum(np.multiply(H, H.T))
         if c == 0:
             minH = HcJ
@@ -82,7 +102,7 @@ def argmin_c(A, AC, C, j):
     return min_c
 
 
-def argmin_r(A, AR, R, i):
+def argmin_r(APC, AR, R, i):
     '''
         choose the nearest cluster for row i
     '''
@@ -92,7 +112,7 @@ def argmin_r(A, AR, R, i):
         r_sum = np.sum(R[:, r])
         if r_sum != 0:
             r_sum = pow(r_sum, -1)
-        H = A[i, :] - r_sum * AR[r, :]
+        H = APC[i, :] - r_sum * AR[r, :]
         HIr = np.sum(np.multiply(H, H))
         if r == 0:
             minH = HIr
@@ -102,19 +122,10 @@ def argmin_r(A, AR, R, i):
                 min_r = r
     return min_r
 
-def col_mean(A, R, C):
-    return R * R.T * A * (np.multiply(C, C))
-
-def row_mean(A,R,C):
-    return (np.multiply(R.T,R.T)) * A * C * C.T
 
 def co_cluster(A, k, l):
     '''
     do cluster for the matrix's row and column at the same time
-    :param A: the matrix to be clustered
-    :param k: the number of row clusters
-    :param l: the number of column clusters
-    :return:  the clustered matrix
     '''
 
     # record the start time
@@ -124,9 +135,11 @@ def co_cluster(A, k, l):
     # initialize the cluster indicator matrix R and C, R for row cluster and C for column cluster.
     R = initialR_C(m, k)
     C = initialR_C(n, l)
+    IR = initialI(m)
+    IC = initialI(n)
 
     # calculate the sum-Squared residue
-    objval = H2(A, R, C)
+    objval = H2(IR, IC, A, R, C)
     # initial the threshold
     tau = get_tau(A)
     delta = tau + 1
@@ -134,10 +147,11 @@ def co_cluster(A, k, l):
     # do co-clustering
     while delta > tau:
         # clustering for columns
-        AC = calAC(A, R, C)
+        AC = calAC(IR, A, R, C)
+        APR = calAPR(IR, A, R, C)
         C_temp = np.zeros(C.shape)
         for j in range(0, n):
-            c = argmin_c(A=A, AC=AC, C=C, j=j)
+            c = argmin_c(APR=APR, AC=AC, C=C, j=j)
             C_temp[j, c] = 1
 
         # update cluster indicate matrix
@@ -147,11 +161,13 @@ def co_cluster(A, k, l):
                 cluster_index_sum_C[s] = pow(cluster_index_sum_C[s], -1 / 2)
         C = np.matrix(np.multiply(C_temp, cluster_index_sum_C))
 
+
         # clustering for rows
-        AR = calAR(A, R, C)
+        AR = calAR(IC, A, R, C)
+        APC = calAPC(IC, A, R, C)
         R_temp = np.zeros(R.shape)
         for i in range(0, m):
-            r = argmin_r(A=A, AR=AR, R=R, i=i)
+            r = argmin_r(APC=APC, AR=AR, R=R, i=i)
             R_temp[i, r] = 1
         # update cluster indicate matrix
         cluster_index_sum_R = np.sum(R_temp, axis=0)
@@ -162,46 +178,27 @@ def co_cluster(A, k, l):
 
         # update and calculate delta
         oldobj = objval
-        objval = H2(A, R, C)
+        objval = H2(IR, IC, A, R, C)
         delta = np.abs(oldobj - objval)
-
+        print(delta)
     # when co-clustering ended, move the rows and columns according to the clustering result
-    # col_means = col_mean(A,R,C)
-    # col_means_max = np.argmax(col_means,axis = 1)
-    # print(col_means_max)
-    row_means = row_mean(A,R,C)
-    row_means_max_list = np.argmax(row_means,axis=0)
-    row_mean_max_matrix = np.zeros((k,n),dtype= float)
-    for i in range(0,n):
-        row_mean_max_matrix[row_means_max_list[0,i],i] = 1
-    R_one = np.where(R==0,0,1)
-    result =np.dot(R_one,row_mean_max_matrix)
-    # print(result)
-    # print((np.sum(R, axis=0)).T)
-    # R_one = R * ((np.sum(R, axis=0)).T)
-    # print(R_one)
-    # print(row_means_max_list)
-    # fit_A = A[np.argsort(np.sum(np.array(R.T), axis=0))]
-    # fit_A = fit_A[:, np.argsort(np.sum(np.array(C.T), axis=0))]
+    fit_A = A[np.argsort(np.sum(np.array(R.T), axis=0))]
+    fit_A = fit_A[:, np.argsort(np.sum(np.array(C.T), axis=0))]
+    plt.matshow(fit_A)
 
     # time cost
     end_time = datetime.datetime.now()
     run_time = (end_time - start_time).seconds
     print("run cost time:")
     print(run_time)
-    # return np.matrix(fit_A)
-    return result
+    return np.matrix(fit_A)
+
 
 # test
 if __name__ == '__main__':
     data, rows, columns = make_biclusters(
-        shape=(3, 3), n_clusters=2, noise=0,
+        shape=(300, 300), n_clusters=3, noise=3,
         shuffle=True, random_state=0)
     plt.matshow(data)
-<<<<<<< HEAD
-    fit_A = co_cluster(data, 10, 10)
-    plt.matshow(fit_A)
-=======
-    co_cluster(data, 2, 2)
->>>>>>> 74c2ff01e27895a171bb47b3ba6e45f23aeb50fb
+    co_cluster(data, 3, 3)
     plt.show()
