@@ -122,3 +122,4 @@ class CNNCocluster(cnn_base_model.CNNBaseModel):
             relu_5 = self.relu(input_data=conv_5, name='relu_5')
             pool5 = self.max_pooling(input_data=relu_5, kernel_size=2, stride=2)
 
+            return pool5
