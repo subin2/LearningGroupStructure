@@ -7,7 +7,7 @@
 """
 packing CNN-l1
 """
-#!/usr/bin/env python
+# !/usr/bin/env python
 # coding=utf-8
 
 from collections import OrderedDict
@@ -18,8 +18,8 @@ from sklearn import preprocessing
 import numpy as np
 import pandas as pd
 from tensorflow.python.client import timeline
-
-import cnn_base_model
+from encoder_decoder_model import cnn_base_model
+# import cnn_base_model
 
 
 class L1Encoder(cnn_base_model.CNNBaseModel):
@@ -58,8 +58,15 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         self._y = tf.placeholder(tf.float32, shape=[inputs[0], feed_forwards[-1]], name='y')  # [batch_size, num]
         self.keep_probs_values = keep_probs
         self._std = std
+        self._regularizer = None
         # L1 正则化
-        self._regularizer = tf.contrib.layers.l1_regularizer(regular_scale, scope=None)
+        # self._regularizer = tf.contrib.layers.l1_regularizer(regular_scale, scope=None)
+        # self._regularizer = tf.contrib.layers.l1_l2_regularizer(
+        #                                                         scale_l1=regular_scale,
+        #                                                         scale_l2=regular_scale,
+        #                                                         scope=None
+        #                                                         )
+
         self.output = None
         self.output_layer = None
 
@@ -99,7 +106,6 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         :param padding:
         :return:
         """
-
 
         w_init = tf.truncated_normal_initializer(stddev=self._std)
         b_init = tf.truncated_normal_initializer(stddev=self._std)
@@ -498,11 +504,12 @@ if __name__ == '__main__':
     optimizer = tf.train.RMSPropOptimizer
     l_rate = 0.0001
     std = 0.05
-    regular_scale = 0.5
+    # regular_scale = 0.5
     # regular_scale = 0.001
+    regular_scale = 2.0
     keep_probs = None
 
-    num_epochs = 10
+    num_epochs = 100
     # num_epochs = 2
     train_batch_num = train_data.shape[0] / batch_size
     print("train_batch_num: %f", train_batch_num)
@@ -569,7 +576,7 @@ if __name__ == '__main__':
             accuracy += model.sess.run(
                 tf.reduce_mean(tf.cast(tf.equal(tf.argmax(model.output_layer, 1), tf.argmax(model._y, 1)), tf.float32)),
                 feed_dict={model._x: test_in, model._y: test_target, model.keep_probs: keep_probs_values})
-        print('accuracy: {}'.format(accuracy/test_batch_num))
+        print('accuracy: {}'.format(accuracy / test_batch_num))
         return accuracy / test_batch_num
 
 
