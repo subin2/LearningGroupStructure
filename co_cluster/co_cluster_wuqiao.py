@@ -158,10 +158,12 @@ def co_cluster(A, k, l):
         oldobj = objval
         objval = H2(A, R, C)
         delta = np.abs(oldobj - objval)
+        print(objval)
 
     # when co-clustering ended, move the rows and columns according to the clustering result
     fit_A = A[np.argsort(np.sum(np.array(R.T), axis=0))]
     fit_A = fit_A[:, np.argsort(np.sum(np.array(C.T), axis=0))]
+    plt.matshow(fit_A)
 
     # time cost
     end_time = datetime.datetime.now()
@@ -174,8 +176,8 @@ def co_cluster(A, k, l):
 # test
 if __name__ == '__main__':
     data, rows, columns = make_biclusters(
-        shape=(500, 500), n_clusters=10, noise=0,
+        shape=(100, 100), n_clusters=5, noise=0,
         shuffle=True, random_state=0)
     plt.matshow(data)
-    co_cluster(data, 10, 10)
+    co_cluster(data, 5, 5)
     plt.show()
