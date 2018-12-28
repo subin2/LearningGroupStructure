@@ -16,20 +16,18 @@ class BaseCoCluster:
     def __init__(self, w, threshold_factor=0.00001, row_cluster_num=2, column_cluster_num=2):
         '''
         init the co-cluster algorithm class
-        :param w: the matrix to be co-clustered
+        :param w: the matrix to be co-clustered，height * width * in_channel * out_channel
         :param threshold_factor:
         :param row_cluster_num:
         :param column_cluster_num:
         '''
-        if isinstance(w, np.ndarray) and len(w.shape) == 3:
-            row_num, col_num, times = w.shape
+        if isinstance(w, np.ndarray) and len(w.shape) == 4:
+            row_num, col_num, in_channel, out_channel = w.shape
             self.w = w
-            print(row_num)
-            print(col_num)
-            print(times)
-            self.m = row_num
-            self.n = col_num
-            self.t = times
+            self.row_num = row_num
+            self.col_num = col_num
+            self.in_channel = in_channel
+            self.out_channel = out_channel
             self.threshold_facotor = threshold_factor
             self.k = row_cluster_num
             self.l = column_cluster_num
@@ -128,8 +126,8 @@ class BaseCoCluster:
         # get rows and columns of  matrix A
         # m, n = A.shape
         # initialize the cluster indicator matrix R and C, R for row cluster and C for column cluster.
-        R = self.initialR_C(self.m, self.k)
-        C = self.initialR_C(self.n, self.l)
+        R = self.initialR_C(self.row_num, self.k)
+        C = self.initialR_C(self.col_num, self.l)
 
         # calculate the sum-Squared residue
         objval = self.H2(A, R, C)
@@ -142,7 +140,7 @@ class BaseCoCluster:
             # clustering for columns
             AC = self.calAC(A, R, C)
             C_temp = np.zeros(C.shape)
-            for j in range(0, self.n):
+            for j in range(0, self.col_num):
                 c = self.argmin_c(A=A, AC=AC, C=C, j=j)
                 C_temp[j, c] = 1
 
@@ -156,7 +154,7 @@ class BaseCoCluster:
             # clustering for rows
             AR = self.calAR(A, R, C)
             R_temp = np.zeros(R.shape)
-            for i in range(0, self.m):
+            for i in range(0, self.row_num):
                 r = self.argmin_r(A=A, AR=AR, R=R, i=i)
                 R_temp[i, r] = 1
             # update cluster indicate matrix
@@ -173,8 +171,8 @@ class BaseCoCluster:
 
         row_means = self.row_mean(A, R, C)
         row_means_max_list = np.argmax(row_means, axis=0)
-        row_mean_max_matrix = np.zeros((self.k, self.n), dtype=float)
-        for i in range(0, self.n):
+        row_mean_max_matrix = np.zeros((self.k, self.col_num), dtype=float)
+        for i in range(0, self.col_num):
             row_mean_max_matrix[row_means_max_list[0, i], i] = 1
         R_one = np.where(R == 0, 0, 1)
         result = np.dot(R_one, row_mean_max_matrix)
@@ -187,13 +185,16 @@ class BaseCoCluster:
     def co_cluster(self):
         # record the start time
         start_time = datetime.datetime.now()
-        clustered_w = self.co_cluster_one(np.matrix(self.w[:, :, 0]))
-        for i in range(1, self.t):
-            clustered_w = np.concatenate((clustered_w, self.co_cluster_one(np.matrix(self.w[:, :, i]))), axis=0)
-        result = clustered_w.reshape(self.t, self.m, self.n)
-        # arrange the array to m * n *t, for example 3 * 3* 128
-        result = result.transpose((1, 2, 0))
-        print(result)
+        clustered_w = self.co_cluster_one(np.matrix(self.w[:, :, 0,0]))
+        for i in range(0,self.out_channel):
+            for j in range(0,self.in_channel):
+                if i== 0 and j == 0:
+                    continue
+                clustered_w = np.concatenate((clustered_w, self.co_cluster_one(np.matrix(self.w[:, :, j, i]))), axis=0)
+        result = clustered_w.reshape(self.out_channel,self.in_channel, self.row_num, self.col_num)
+        # arrange the array to  height * width * in_channel * out_channel, for example 3 * 3* 128 * 128
+        result = result.transpose((2, 3, 1, 0))
+        # print(result)
         # time cost
         end_time = datetime.datetime.now()
         self.run_time = (end_time - start_time).seconds
@@ -204,24 +205,28 @@ class BaseCoCluster:
 
 if __name__ == '__main__':
     data_pre, rows_pre, columns_pre = make_biclusters(
-        shape=(6, 4), n_clusters=2, noise=0,
+        shape=(3, 4), n_clusters=2, noise=0,
         shuffle=True, random_state=0)
     print(data_pre)
     # data_pre = data_pre.reshape(3,3,1)
-    for i in range(1, 5):
-        data, rows, columns = make_biclusters(
-            shape=(3, 4), n_clusters=2, noise=0,
-            shuffle=True, random_state=0)
-        print(data)
-        # data = data.reshape(3,3,1)
-        # data_pre = np.hstack((data_pre,data))
-        data_pre = np.concatenate((data_pre, data), axis=0)
+    for i in range(0, 6):
+        for j in range(0,5):
+            if i==0and j == 0:
+                continue
+            data, rows, columns = make_biclusters(
+                shape=(3, 4), n_clusters=2, noise=0,
+                shuffle=True, random_state=0)
+            data_pre = np.concatenate((data_pre, data), axis=0)
 
+    # print(data_pre)
+    data_pre = data_pre.reshape(6, 5, 3, 4)
+    # print(data_pre)
+    data_pre = data_pre.transpose((2, 3, 1, 0))
     print(data_pre)
-    data_pre = data_pre.reshape(6, 3, 4)
-    print(data_pre)
-    data_pre = data_pre.transpose((1, 2, 0))
-    print(data_pre)
+    print("onecheck")
+    print(data_pre[:,:,0,0])
     baseCoCluster = BaseCoCluster(w=data_pre)
     result = BaseCoCluster.co_cluster(baseCoCluster)
+    print("start")
+    print(result)
     print("end")
