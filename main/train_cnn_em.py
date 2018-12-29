@@ -1,7 +1,7 @@
 '''
 @author: Pan
 @software: PyCharm
-@file: train.py
+@file: train_cnn_em.py
 @time: 2018/12/18 10:41
 @desc:
     训练
@@ -11,7 +11,6 @@ import csv
 import time
 import random
 # import cPickle
-from tqdm import tqdm
 import pandas as pd
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 

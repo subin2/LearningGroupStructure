@@ -4,19 +4,19 @@
 # @Site    : http://github.com/mrjiao2018
 # @File    : show_result.py
 # @IDE     : PyCharm Community Edition
+import tensorflow as tf
 """
     打印结果
 """
 
 
-class ShowResult(object):
-    """
-        打印结果专用
-    """
+def show_w(w, name):
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+        print('{:s} shape:{:s}'.format(name, str(w.shape)))
+        print('{:s} : '.format(name))
+        print(sess.run(w))
 
-    def __init__(self):
-        pass
 
-
-    def show_cnn_cocluster_result(self):
-        pass
+def show_cnn_cocluster_result():
+    pass
