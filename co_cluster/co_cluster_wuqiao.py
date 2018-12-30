@@ -181,9 +181,9 @@ def co_cluster(A, k, l):
     # R_one = R * ((np.sum(R, axis=0)).T)
     # print(R_one)
     # print(row_means_max_list)
-    # fit_A = A[np.argsort(np.sum(np.array(R.T), axis=0))]
-    # fit_A = fit_A[:, np.argsort(np.sum(np.array(C.T), axis=0))]
-
+    fit_A = A[np.argsort(np.sum(np.array(R.T), axis=0))]
+    fit_A = fit_A[:, np.argsort(np.sum(np.array(C.T), axis=0))]
+    plt.matshow(fit_A)
     # time cost
     end_time = datetime.datetime.now()
     run_time = (end_time - start_time).seconds
@@ -195,13 +195,9 @@ def co_cluster(A, k, l):
 # test
 if __name__ == '__main__':
     data, rows, columns = make_biclusters(
-        shape=(3, 3), n_clusters=2, noise=0,
+        shape=(500, 500), n_clusters=10, noise=0,
         shuffle=True, random_state=0)
     plt.matshow(data)
-<<<<<<< HEAD
-    fit_A = co_cluster(data, 10, 10)
-    plt.matshow(fit_A)
-=======
-    co_cluster(data, 2, 2)
->>>>>>> 74c2ff01e27895a171bb47b3ba6e45f23aeb50fb
+    result = co_cluster(data, 10, 10)
+    plt.matshow(result)
     plt.show()
