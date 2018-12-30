@@ -94,7 +94,7 @@ class CNNCocluster(cnn_base_model.CNNBaseModel):
         :param w:
         :return:
         """
-        with tf.variable_scope(name):
+        with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
             b_init = tf.Variable(tf.random_normal([out_dims], stddev=std, dtype=tf.float32))
             conv = self.conv2d(input_data=input_tensor,
                                kernel_size=k_size,
@@ -146,10 +146,11 @@ class CNNCocluster(cnn_base_model.CNNBaseModel):
             # 全连接操作，输出为 [batch_size, 128]
             # todo cnn_em中原作者在此对w进行了聚类，测试时注意这里可能还需要对w进行聚类
             # todo cnn_em中原作者在此对使用的bias为 tf.random_normal(stddev=0.05)，cnn_base_model中random-normal 没指定std
-            fc = self.fully_connect(input_data=reshape, out_dim=128)
+            with tf.variable_scope(name_or_scope='fc', reuse=tf.AUTO_REUSE):
+                fc = self.fully_connect(input_data=reshape, out_dim=128)
 
-            # 分类操作，输出为 [batch_size, 10]
-            net = self.fully_connect(input_data=fc, out_dim=10)
+                # 分类操作，输出为 [batch_size, 10]
+                net = self.fully_connect(input_data=fc, out_dim=10)
 
         return net
 

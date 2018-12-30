@@ -31,7 +31,7 @@ def test(cnn_cocluster_model):
 
     # biuld model
     print("start to build model")
-    # todo 应该改成：将已经训练好的模型的参数保存，test时直接加载这些参数建立网络
+    # todo 此处目前是通过参数将模型传递，但最好应该改成：将已经训练好的模型的参数保存，test时直接加载这些参数建立网络
     # cnn_cocluster_model = cnn_cocluster.CNNCocluster(phase=tf.constant('test', dtype=tf.string))
     cnn_cocluster_net = cnn_cocluster_model.encode(input_tensor=input_data)
     print("finish building model. {:.3f}s taken.".format(time.time() - start_time))

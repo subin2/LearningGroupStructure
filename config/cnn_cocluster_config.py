@@ -16,7 +16,7 @@ cfg = __C
 # Train options
 __C.TRAIN = edict()
 
-__C.TRAIN.EPOCH = 400
+__C.TRAIN.EPOCH = 1
 
 __C.TRAIN.BATCH_SIZE = 64
 
