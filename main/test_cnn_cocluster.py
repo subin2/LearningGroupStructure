@@ -56,7 +56,3 @@ def test(cnn_cocluster_model):
     print("accuracy: {}".format(accuracy / test_batch_num))
     return accuracy / test_batch_num
 
-
-if __name__ == '__main__':
-    # test(None)
-    pass

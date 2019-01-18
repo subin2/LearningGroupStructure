@@ -13,21 +13,47 @@ from sklearn.datasets import make_biclusters
 
 
 class BaseCoCluster:
-    def __init__(self, w, threshold_factor=0.00001, row_cluster_num=2, column_cluster_num=2):
+    # def __init__(self, w, threshold_factor=0.00001, row_cluster_num=2, column_cluster_num=2):
+    #     '''
+    #     init the co-cluster algorithm class
+    #     :param w: the matrix to be co-clustered，height * width * in_channel * out_channel
+    #     :param threshold_factor:
+    #     :param row_cluster_num:
+    #     :param column_cluster_num:
+    #     '''
+    #     if isinstance(w, np.ndarray) and len(w.shape) == 4:
+    #         row_num, col_num, in_channel, out_channel = w.shape
+    #         self.w = w
+    #         self.row_num = row_num
+    #         self.col_num = col_num
+    #         self.in_channel = in_channel
+    #         self.out_channel = out_channel
+    #         self.threshold_facotor = threshold_factor
+    #         self.k = row_cluster_num
+    #         self.l = column_cluster_num
+    #         self.run_time = 0
+    #     else:
+    #         raise Exception("wrong array")
+    def __init__(self, w, dims=4, threshold_factor=0.00001, row_cluster_num=2, column_cluster_num=2):
         '''
         init the co-cluster algorithm class
         :param w: the matrix to be co-clustered，height * width * in_channel * out_channel
+        :param dims: the dimension of the matrix w
         :param threshold_factor:
         :param row_cluster_num:
         :param column_cluster_num:
         '''
-        if isinstance(w, np.ndarray) and len(w.shape) == 4:
-            row_num, col_num, in_channel, out_channel = w.shape
+        if isinstance(w, np.ndarray) and len(w.shape)==dims:
+            if(dims==4):
+                row_num, col_num, in_channel, out_channel = w.shape
+                self.in_channel = in_channel
+                self.out_channel = out_channel
+            elif(dims==2):
+                row_num, col_num = w.shape
             self.w = w
+            self.dims = dims
             self.row_num = row_num
             self.col_num = col_num
-            self.in_channel = in_channel
-            self.out_channel = out_channel
             self.threshold_facotor = threshold_factor
             self.k = row_cluster_num
             self.l = column_cluster_num
@@ -185,15 +211,21 @@ class BaseCoCluster:
     def co_cluster(self):
         # record the start time
         start_time = datetime.datetime.now()
-        clustered_w = self.co_cluster_one(np.matrix(self.w[:, :, 0,0]))
-        for i in range(0,self.out_channel):
-            for j in range(0,self.in_channel):
-                if i== 0 and j == 0:
-                    continue
-                clustered_w = np.concatenate((clustered_w, self.co_cluster_one(np.matrix(self.w[:, :, j, i]))), axis=0)
-        result = clustered_w.reshape(self.out_channel,self.in_channel, self.row_num, self.col_num)
-        # arrange the array to  height * width * in_channel * out_channel, for example 3 * 3* 128 * 128
-        result = result.transpose((2, 3, 1, 0))
+        if(self.dims == 4):
+            clustered_w = self.co_cluster_one(np.matrix(self.w[:, :, 0,0]))
+            for i in range(0,self.out_channel):
+                for j in range(0,self.in_channel):
+                    if i== 0 and j == 0:
+                        continue
+                    clustered_w = np.concatenate((clustered_w,
+                                                  self.co_cluster_one(np.matrix(self.w[:, :, j, i]))),
+                                                 axis=0)
+            result = clustered_w.reshape(self.out_channel,self.in_channel, self.row_num, self.col_num)
+            # arrange the array to  height * width * in_channel * out_channel, for example 3 * 3* 128 * 128
+            result = result.transpose((2, 3, 1, 0))
+        elif(self.dims == 2):
+            clustered_w = self.co_cluster_one(np.matrix(self.w[:, :]))
+            result = clustered_w
         # print(result)
         # time cost
         end_time = datetime.datetime.now()
