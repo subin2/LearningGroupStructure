@@ -724,9 +724,9 @@ data_path = './CIFAR-10'
 data_save_path = os.path.join('./data2/subin/regularize', data_path[2:])
 
 # todo 初始化 data_save_path
-if not os.path.exists(data_save_path):
-    print( 'creating difectory {}'.format(data_save_path))
-    os.mkdir(os.path.join(data_save_path))
+# if not os.path.exists(data_save_path):
+#     print( 'creating difectory {}'.format(data_save_path))
+#     os.mkdir(os.path.join(data_save_path))
 
 if not os.path.exists(data_path):
     print('creating difectory {}'.format(data_path))
@@ -918,7 +918,7 @@ for epoch in range(num_epochs):
     cluster_history.loc[epoch] = [epoch] + model.get_cluster(train_in).tolist() + [
         time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
     if (epoch + 1) % save_freq == 0:
-        model.save(os.path.join(data_save_path, model_name, str(epoch + 1) + '.ckpt'))
+        # model.save(os.path.join(data_save_path, model_name, str(epoch + 1) + '.ckpt'))
         train_history.to_csv(os.path.join(save_path, model_name, str(num_epochs) + "epochs-train_history.csv"))
         # valid_history.to_csv(os.path.join(save_path, model_name, str(num_epochs)+"epochs-valid_history.csv"))
         cluster_history.to_csv(os.path.join(save_path, model_name, str(num_epochs) + "epochs-cluster_history.csv"))
