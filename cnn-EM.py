@@ -636,6 +636,12 @@ Set Path
 data_path = './CIFAR-10'
 data_save_path = os.path.join('/data2/subin/regularize', data_path[2:])
 
+# todo 初始化 data_save_path
+if not os.path.exists(data_save_path):
+    print( 'creating difectory {}'.format(data_save_path))
+    os.mkdir(os.path.join(data_save_path))
+
+
 if not os.path.exists(data_path):
     print( 'creating difectory {}'.format(data_path))
     os.mkdir(os.path.join(data_path))
