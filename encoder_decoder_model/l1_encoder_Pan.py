@@ -126,19 +126,13 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
     def _build_model(self,input_tensor):
         print("layer name: {:s} shape: {}".format('input', input_tensor))
         with tf.variable_scope('convs'):
-            #pool_input = self.max_pooling(input_data=input_tensor, kernel_size=2, stride=2, name='pool_input')
             conv_1 = self._conv_stage(input_tensor=input_tensor, k_size=3,out_dims=128, regularizer=self.regularizer,name='conv_1')
-            #conv_1 = self._conv_stage(input_tensor=input_tensor, k_size=3, out_dims=128,
-            #                          name='conv_1')
             pool_1 = self.max_pooling(input_data=conv_1, kernel_size=2, stride=2, name='pool1')
             self.layers.append(conv_1)
             self.layers.append(pool_1)
-            # print("layer name: {:s} shape: {}".format('conv_1', conv_1))
             print("layer name: {:s} shape: {}".format('conv_1', pool_1))
 
             conv_2 = self._conv_stage(input_tensor=pool_1, k_size=3, out_dims=128,regularizer=self.regularizer,name='conv_2')
-            #conv_2 = self._conv_stage(input_tensor=pool_1, k_size=3, out_dims=128,
-            #                          name='conv_2')
             pool_2 = self.max_pooling(input_data=conv_2, kernel_size=2, stride=2, name='pool2')
             self.layers.append(conv_2)
             self.layers.append(pool_2)
@@ -152,7 +146,7 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
 
             conv_4 = self._conv_stage(input_tensor=pool_3, k_size=3, out_dims=128,regularizer=self.regularizer,name='conv_4')
             pool_4 = self.max_pooling(input_data=conv_4, kernel_size=2, stride=2, name='pool3')
-
+            self.layers.append(conv_4)
             self.layers.append(pool_4)
             print("layer name: {:s} shape: {}".format('conv_4', pool_4))
 

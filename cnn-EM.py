@@ -284,7 +284,7 @@ class grcnn(object):
                     self.max_idx.append(tf.cast(tf.argmax(w_mean.stack(), axis=0), tf.int32))
                     print('      {:{length}} : {}'.format('max_idx', self.max_idx[-1], length=12))
                 else:
-                    # em!= 0
+                    # em!= 0 如果不是第一
                     self.cluster.append(self.max_idx[-1])
                     print('      {:{length}} : {}'.format('cluster', self.cluster[-1], length=12))
                     #
@@ -601,7 +601,7 @@ optimizer = tf.train.RMSPropOptimizer
 l_rate = 0.0001
 std = 0.05
 
-num_epochs = 400
+num_epochs = 30
 # num_epochs = 2
 train_batch_num = train_data.shape[0] / batch_size
 #valid_batch_num = valid_data.shape[0] / batch_size
