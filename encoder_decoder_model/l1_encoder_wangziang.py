@@ -60,7 +60,7 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         self._std = std
         self._regularizer = None
         # L1 正则化
-        # self._regularizer = tf.contrib.layers.l1_regularizer(regular_scale, scope=None)
+        self._regularizer = tf.contrib.layers.l1_regularizer(regular_scale, scope=None)
         # self._regularizer = tf.contrib.layers.l1_l2_regularizer(
         #                                                         scale_l1=regular_scale,
         #                                                         scale_l2=regular_scale,
@@ -255,11 +255,12 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
                 self.output_layer = network
                 print('    {:{length}} : {}'.format('feed_forward' + str(f + 2), self.output_layer, length=12))
 
+        reg_loss = tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
         if self._loss_func is None:
             self._cost = tf.sqrt(tf.reduce_mean(tf.squared_difference(self.output, self._y)))
         else:
             err = self._loss_func(logits=self.output, labels=self._y)
-            self._cost = tf.reduce_mean(err)
+            self._cost = tf.reduce_mean(err) + reg_loss
 
         if optimizer is None:
             self.optimizer = tf.train.GradientDescentOptimizer(self._l_rate)
@@ -268,6 +269,8 @@ class L1Encoder(cnn_base_model.CNNBaseModel):
         self.optimize = self.optimizer.minimize(self._cost, global_step=self._global_step)
         # softmax
         self.prediction = tf.nn.softmax(logits=self.output_layer)
+
+        print(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 
     def freeze(self):
         if not self._frozen:
@@ -505,11 +508,11 @@ if __name__ == '__main__':
     l_rate = 0.0001
     std = 0.05
     # regular_scale = 0.5
-    # regular_scale = 0.001
-    regular_scale = 2.0
+    regular_scale = 0.001
+    # regular_scale = 2.0
     keep_probs = None
 
-    num_epochs = 100
+    num_epochs = 50
     # num_epochs = 2
     train_batch_num = train_data.shape[0] / batch_size
     print("train_batch_num: %f", train_batch_num)
@@ -538,6 +541,7 @@ if __name__ == '__main__':
                       std=std,
                       )
     print('Done model. {:.3f}s taken.'.format(time.time() - start_time))
+
 
     valid_freq = 10
     save_freq = 50
@@ -584,6 +588,8 @@ if __name__ == '__main__':
     first = True
     test_count = 0
     Q_conv_count = 0
+    output = 0
+    num = []
 
     for epoch in range(num_epochs):
         start_time = time.time()
@@ -596,29 +602,60 @@ if __name__ == '__main__':
             train_test_data = train_in
             train_test_label = train_target
             # train_in = train_in[:,np.newaxis,:,np.newaxis]
-            loss_, accuracy = model.train(train_in, train_target, profile)
+            loss_, accuracy_ = model.train(train_in, train_target, profile)
+            train_accuracy.append(accuracy)
+
             # loss_ = model.train(train_in, train_target, profile)
             # prediction = model.sess.run(model.prediction, feed_dict=train_feed_dict)
             # accuracy = model.get_accuracy(prediction, target)
             # print(loss_)
             profile = False
             loss += loss_
+            accuracy += accuracy_
 
         train_loss.append(loss / train_batch_num)
+        train_accuracy.append(accuracy / train_batch_num)
+
         # train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
-        train_accuracy.append(accuracy)
+
         # train_accuracy.append(test(train_data, train_label, batch_size, model, train_batch_num))
         # train_history.loc[epoch] = [epoch + 1, train_loss[-1], train_err[-1],
         #                             time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
 
-        if (epoch + 1) % save_freq == 0:
-            w_mask_pass = []
+        # if (epoch + 1) % save_freq == 0:
+        #     w_mask_pass = []
+        #
+        #     param_history.loc[epoch / save_freq] = [epoch + 1] + w_mask_pass + [
+        #         time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
 
-            param_history.loc[epoch / save_freq] = [epoch + 1] + w_mask_pass + [
-                time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
         print("Epoch {} of {} took {:.3f}s".format(epoch + 1, num_epochs, time.time() - start_time))
         print("  training loss:    {:.6f}".format(train_loss[-1]))
         print("  training acc:     {:.6f}".format(train_accuracy[-1]))
+
+        # b = tf.get_default_graph().get_tensor_by_name("conv_1/Conv/biases:0")
+        w_1 = tf.get_default_graph().get_tensor_by_name("conv_1/Conv/weights:0")
+        w_2 = tf.get_default_graph().get_tensor_by_name("conv_2/Conv/weights:0")
+        w_3 = tf.get_default_graph().get_tensor_by_name("conv_3/Conv/weights:0")
+        w_4 = tf.get_default_graph().get_tensor_by_name("conv_4/Conv/weights:0")
+        non_zero = tf.count_nonzero(w_2)
+
+        output += tf.size(tf.gather_nd(w_1, tf.where(w_1 > 0)))
+        output += tf.size(tf.gather_nd(w_2, tf.where(w_2 > 0)))
+        output += tf.size(tf.gather_nd(w_3, tf.where(w_3 > 0)))
+        output += tf.size(tf.gather_nd(w_4, tf.where(w_4 > 0)))
+
+
+
+        # tensors = [tensor.name for tensor in tf.get_default_graph().as_graph_def().node]
+        # model.sess.run(tensors)
+
+        with tf.Session() as sess:
+            tf.global_variables_initializer().run()
+            # print(sess.run(b))
+            # print(sess.run(w))
+            # print(sess.run(non_zero))
+            # print(sess.run(output/4))
+            num.append(sess.run(output/4))
 
         if (epoch + 1) in test_epoch:
             test_accuracy.append(test(test_data, test_label, batch_size, model, test_batch_num))
@@ -627,3 +664,5 @@ if __name__ == '__main__':
             #                                 time.strftime("%Y-%m-%d-%H:%M", time.localtime())]
             test_count += 1
             print("test accuracy:   {:.2f}%".format(test_accuracy[-1] * 100))
+            number = tf.reduce_mean(num)
+            print("average param greater than 0 {:.2f}%".format(number))

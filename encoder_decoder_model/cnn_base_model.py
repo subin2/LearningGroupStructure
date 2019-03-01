@@ -66,14 +66,15 @@ class CNNBaseModel(object):
 
             if w_init is None:
                 w_init = tf.contrib.layers.variance_scaling_initializer()
+                w = tf.get_variable('W', filter_shape, initializer=w_init)
+            else:
+                w = tf.get_variable('W', initializer=w_init)
+
             if b_init is None:
                 b_init = tf.constant_initializer()
-
-            w = tf.get_variable('W', filter_shape, initializer=w_init)
-            b = None
-
-            if use_bias:
-                b = tf.get_variable('b', [out_channel], initializer=b_init)
+                b = tf.get_variable('b', [out_channel], initializer=b_init) if use_bias else None
+            else:
+                b = tf.get_variable('b', initializer=b_init) if use_bias else None
 
             if split == 1:
                 conv = tf.nn.conv2d(input_data, w, strides, padding, data_format=data_format)
@@ -292,10 +293,10 @@ class CNNBaseModel(object):
         else:
             input_data = tf.reshape(input_data, tf.stack([tf.shape(input_data)[0], -1]))
 
-        # if w_init is None:
-            # w_init = tf.contrib.layers.variance_scaling_initializer(distribution="normal")
+        if w_init is None:
+            w_init = tf.contrib.layers.variance_scaling_initializer(uniform=False)
         if b_init is None:
-            b_init = tf.constant_initializer()
+            b_init = tf.contrib.layers.variance_scaling_initializer(uniform=False)
 
         ret = tf.layers.dense(inputs=input_data, activation=lambda x: tf.identity(x, name='output'),  # activation???
                               use_bias=use_bias, name=name,

@@ -202,6 +202,7 @@ class grcnn(object):
         self.pi_normed = tf.div(tf.maximum(self.pi, 0.0), tf.reduce_sum(tf.maximum(self.pi, 0.0))) 
         
         ### convs before em
+        # 根据作者的参数设定，该for循环不执行
         for i in range(layer_count, self.em_layers[0]-1):
             layer = models.RCL(input=layer.get_layer(),
                                weight_size=self.weight_size[layer_count],
@@ -223,7 +224,7 @@ class grcnn(object):
         ### em
         self.em_w=[]
         self.w_mask=[]
-        self.w_masked=[]
+        self.w_masked=[]    # 为二维矩阵，每一维都是一个处理后的权重参数矩阵，矩阵中较小值全部为0，较大值保留
         self.cluster = []
         self.max_idx = []
         for em in range(len(self.em_layers)):
@@ -328,11 +329,15 @@ class grcnn(object):
             self.convs.append(layer)
             print('    {:{length}} : {}'.format('conv'+str(layer_count+1), layer.get_layer(), length=12))
             layer_count += 1
+            # 第一次执行至此时，根据作者的参数设定，layer_count = 2, len(self.conv) = 4
+            # 所以该 for 循环一共执行3次，分别为layer_count = 2、3、4时
+            # 退出该 for 循环时，layer_count = 4
             if layer_count>=len(self.conv):
                 break
         # end for
-        
+
         ### left conv layers
+        # 根据作者的参数设定，该for循环不执行
         for i in range(layer_count, len(self.conv)):
             layer = models.RCL(input=layer.get_layer(),
                                weight_size=self.weight_size[layer_count],
@@ -352,7 +357,8 @@ class grcnn(object):
         network = tf.reshape(layer.get_layer(), shape=[-1, self.feed_forwards[0]])# * self.keep_probs[1]]) ###
         self.flatten = network
         print('    {:{length}} : {}'.format('flatten', self.flatten, length=12))
-        
+
+        # 该 if 不执行
         if len(self.feed_forwards) == 2:
             network = models.feedforward(input = network,
                                          weight_size=[self.feed_forwards[0], self.feed_forwards[1]],
@@ -367,9 +373,12 @@ class grcnn(object):
             self.output = network#.get_layer()
             self.output_layer = network.get_layer()
             print('    {:{length}} : {}'.format('feedforward'+str(1), self.output_layer, length=12))
+        # 该 else 执行
         else:
             self.forwards=[]
+            # 根据作者的参数设定，该for循环执行一次：len(self.feed_forwards)-1 -1 = 1
             for f in range(len(self.feed_forwards)-1 -1):
+                #该 if 执行
                 if layer_count+1+f in self.em_layers:
                     with tf.name_scope('feedforward'+str(f+1)+'em'):
                         self.em_w.append(tf.Variable( tf.random_normal( [self.feed_forwards[f], self.feed_forwards[f+1]], stddev=self.std, dtype=tf.float32), name='w' ))
@@ -404,7 +413,8 @@ class grcnn(object):
                         w_mask_pack = tf.transpose(w_mask_array.stack())
                         self.w_mask.append(w_mask_pack)
                         self.w_masked.append(tf.multiply(self.em_w[-1], self.w_mask[-1]))
-                    ###                        
+
+                    # 以上代码的目的均为求 w_masked
                     network  = models.feedforward(input = network, 
                                                   weight_size=[self.feed_forwards[f], self.feed_forwards[f+1]],
                                                   weight=self.w_masked[-1],
@@ -419,6 +429,7 @@ class grcnn(object):
                                                   name='forward'+str(f+1))
                     self.forwards.append(network)
                     network = network.get_layer()
+                    # 此处 layer_count = 4, +1后为5
                     layer_count += 1
                     print('    {:{length}} : {}'.format('feedforward'+str(f+1), network, length=12))
                 else:
@@ -594,7 +605,7 @@ nonlinearity = tf.nn.relu
 err_func = tf.nn.softmax_cross_entropy_with_logits
 
 keep_probs = None
-use_dropout = not (keep_probs == None or keep_probs == [1.0 for i in range(len(keep_probs))])
+use_dropout = not (keep_probs == None or keep_probs == [1.0 for i in range(len(keep_probs))])   # 为false
 use_batchnorm = False
 
 optimizer = tf.train.RMSPropOptimizer
@@ -623,7 +634,14 @@ Set Path
 """
 
 data_path = './CIFAR-10'
-data_save_path = os.path.join('/data2/subin/regularize', data_path[2:])
+# data_save_path = os.path.join('/data2/subin/regularize', data_path[2:])
+data_save_path = os.path.join('./data2/subin/regularize', data_path[2:])
+
+# todo 初始化 data_save_path
+if not os.path.exists(data_save_path):
+    print( 'creating difectory {}'.format(data_save_path))
+    os.mkdir(os.path.join(data_save_path))
+
 
 if not os.path.exists(data_path):
     print( 'creating difectory {}'.format(data_path))
