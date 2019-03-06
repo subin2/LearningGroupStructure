@@ -409,3 +409,11 @@ class CNNBaseModel(object):
                 ret = conv
 
         return ret
+
+    @staticmethod
+    def concatenation(layers):
+        return tf.concat(layers, axis=3)
+
+    @staticmethod
+    def linear(x,class_num):
+        return tf.layers.dense(inputs=x, units=class_num, name='linear')
