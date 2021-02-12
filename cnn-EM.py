@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-# coding: utf-8
+# coding=utf-8
 
 
 import os
 import csv
 import time
 import random
-import cPickle
+# import cPickle
 import pandas as pd
 
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -28,7 +28,7 @@ from utils import iterate_minibatches as iterate_minibatches
 import models
 
 
-
+# N
 def gmm_pdf_log(x, mu=[], sigma=[], sess=None):
     #check shape
     if type(mu) is list:
@@ -37,7 +37,8 @@ def gmm_pdf_log(x, mu=[], sigma=[], sess=None):
             raise ValueError('mu and sigma number not matched.')
     if multi:
         #tf.split(split_dim, num_split, value, name='split')
-        x = [tf.reshape(t, [-1]) for t in tf.split(split_dim=0, num_split=x.get_shape()[0].value, value=x)] #[[100],[100],[100]]
+        x = [tf.reshape(t, [-1]) for t in tf.split(axis=0, num_or_size_splits=x.get_shape()[0].value, value=x)] #[[100],[100],[100]]
+        # D
         dim=mu[-1].get_shape()[-1].value #100
     else:
         if len(x.get_shape()) != len(mu.get_shape()) or x.get_shape()[0].value!=mu.get_shape()[0].value:
@@ -49,34 +50,46 @@ def gmm_pdf_log(x, mu=[], sigma=[], sess=None):
         for i in range(len(mu)): #3
             flag=False
             # make covariance matrix positive diagonal matrix with some noise added
+            # 当前类的协方差矩阵
             tmp_sigma = tf.abs(sigma[i])
+            # 协方差矩阵对角线元素构成对角矩阵
             tmp_sigma = tf.matrix_diag(tf.matrix_diag_part(tmp_sigma))
+            # 当前类的均值向量
             tmp_mu = mu[i]
-            #
-            log_det = tf.reduce_sum(tf.log(tf.matrix_diag_part(tmp_sigma) + 1e-40))
+            # 降维加法，log|协方差矩阵|
+            log_det = tf.reduce_sum(tf.log(tf.matrix_diag_part(tmp_sigma) + 1e-40))  # 加噪声
+
+            # 协方差矩阵^(-1)
             inv = tf.clip_by_value(tf.matrix_diag(tf.div(tf.cast(1.0, dtype=tf.float64),
                                                                          tf.matrix_diag_part(tmp_sigma))),
                                            clip_value_min=-1e30, clip_value_max=1e30)
+            # e前参数部分的log
             tmp1 = -(dim*0.5*tf.log(tf.cast(2*np.pi, dtype=tf.float64))) - (0.5*log_det)
+
             tmp2_1 = tf.matmul(tf.matmul(tf.reshape(tf.cast(x[i], dtype=tf.float64) - tmp_mu,[1,-1]),
                                          inv),#tf.matrix_inverse(sigma)),
                                tf.reshape(tf.cast(x[i], dtype=tf.float64)-tmp_mu,[-1,1]))
+            # e的指数部分
             tmp2 = -0.5*tmp2_1#tf.matmul(tmp2_1, -0.5)
             #pdf = tf.exp(tf.clip_by_value(tmp1+tmp2, clip_value_min=-100.0, clip_value_max=85.0)) #remove log
+            # 去掉log
             pdf = tf.exp(tmp1+tmp2) #remove log
+            # N
             output.append(pdf)
-        output = tf.reshape(tf.concat(values=output, concat_dim=0),[-1])
+        output = tf.reshape(tf.concat(values=output, axis=0),[-1])
         return output
     else:
         #det = tf.matrix_determinant(self.sigma[i])
-        det = tf.cond(tf.equal(tf.matrix_determinant(self.sigma),0), 
+        # 行列式是否为0
+        det = tf.cond(tf.equal(tf.matrix_determinant(sigma),0),
                     lambda:  tf.constant(1e-30),
-                    lambda: tf.matrix_determinant(self.sigma))
-        tmp1_1 = tf.matmul(tf.pow((2*np.pi),self.dim), det)
+                      # 取方阵行列式
+                    lambda: tf.matrix_determinant(sigma))
+        tmp1_1 = tf.matmul(tf.pow((2*np.pi),dim), det)
         tmp1 = tf.pow(tmp1_1, -1.0/2)
-        tmp2 = tf.exp(-tf.matmul(tf.matmul(tf.reshape(x[i]-self.mu,[1,-1]),
-                                            tf.matrix_inverse(self.sigma)),
-                                tf.reshape(x[i]-self.mu,[-1,1])
+        tmp2 = tf.exp(-tf.matmul(tf.matmul(tf.reshape(x-mu,[1,-1]),
+                                            tf.matrix_inverse(sigma)),
+                                tf.reshape(x-mu,[-1,1])
                                 )/2)
         output = tf.matmul(tmp1,tmp2)
         return output
@@ -171,19 +184,25 @@ class grcnn(object):
             self.convs.append(layer)
             print('    {:{length}} : {}'.format('conv'+str(layer_count+1), layer.get_layer(), length=12))
             layer_count += 1
-        #
+        # 输出层的节点数
         length = self.weight_size[layer_count][-1]#layer.get_layer().get_shape()[2].value
+        # 均值向量矩阵
         mu_init_value = np.zeros([self.cluster_num, length])
+        # 协方差矩阵
         sigma_init_value = np.zeros([self.cluster_num, length, length])
-        pi_init_value = np.ones([cluster_num]) / self.cluster_num 
+        # 混合模型的混合权重或混合系数
+        pi_init_value = np.ones([cluster_num]) / self.cluster_num
+        # 数组 大小：cluster_num聚类量，float
         self.mu = [tf.Variable(tf.random_normal([length], dtype=tf.float64), name='mu'+str(t)) for t in range(self.cluster_num)]
         self.sigma = [tf.Variable(tf.random_normal([length,length], dtype=tf.float64), name='sigma'+str(t)) for t in range(self.cluster_num)]
+        # cluster_num * cluster_num 矩阵
         self.pi = tf.Variable(tf.multiply(tf.ones([1, self.cluster_num], tf.float64), pi_init_value),
                             trainable=True,name='pi')
         # force the sum of elements of pi vector to be 1.
         self.pi_normed = tf.div(tf.maximum(self.pi, 0.0), tf.reduce_sum(tf.maximum(self.pi, 0.0))) 
         
         ### convs before em
+        # 根据作者的参数设定，该for循环不执行
         for i in range(layer_count, self.em_layers[0]-1):
             layer = models.RCL(input=layer.get_layer(),
                                weight_size=self.weight_size[layer_count],
@@ -205,49 +224,68 @@ class grcnn(object):
         ### em
         self.em_w=[]
         self.w_mask=[]
-        self.w_masked=[]
+        self.w_masked=[]    # 为二维矩阵，每一维都是一个处理后的权重参数矩阵，矩阵中较小值全部为0，较大值保留
         self.cluster = []
         self.max_idx = []
         for em in range(len(self.em_layers)):
             with tf.name_scope('conv'+str(layer_count+1)+'em'):
+                # 以输入节点个数和输出节点个数建立矩阵
                 self.em_w.append(tf.Variable( tf.random_normal( self.weight_size[layer_count], stddev=self.std, dtype=tf.float32), name='w' ))                
                 if em == 0:
+                    # 第k个高斯分量 对于“解释”观测值 x_i 的“责任”
                     gamma_elem = []
+                    # 对数似然函数的期望
                     Q_elem = []
                     self.x_batch = tf.reduce_max(self.em_w[-1], axis=[0,1]) - tf.reduce_min(self.em_w[-1], axis=[0,1])
+                    # 输入节点循环
                     for w in range(self.weight_size[layer_count][-2]):
+                        # 高斯混合模型对数似然函数N
                         x_pdf = gmm_pdf_log(mu=self.mu, 
                                                         sigma=self.sigma, 
                                                         x=tf.reshape(tf.tile(self.x_batch[w,:],[self.cluster_num]),[self.cluster_num,-1]), #[3, 100]
                                                        sess=self.sess)                
+                        # 乘以系数的 N
                         pi_pdf = tf.multiply(self.pi_normed, x_pdf)
+
+                        # 可以理解为分量 k 对于“解释”观测值 x 的“责任”
                         gamma_tmp = tf.reshape(tf.div(pi_pdf,
                                                       tf.maximum(tf.reduce_sum(pi_pdf),1e-30)),
                                                [-1])
+                        # 不要算梯度
                         gamma_tmp = tf.stop_gradient(gamma_tmp) # fix the value. do not calculate the gradient of this term.
+                        # 2维
                         gamma_elem.append(gamma_tmp)
                         tmp = tf.reduce_sum(tf.multiply(gamma_tmp, 
                                                                     tf.log(pi_pdf+1e-30)))
                         Q_elem.append(tmp)
+                    # 对数似然函数的期望
                     self.Q = tf.reduce_sum(Q_elem)
                     self.Q_summary = tf.summary.scalar("Q", self.Q)
+
                     self.gamma = tf.stack(gamma_elem)
+                    # 返回行中最大值所在的下标
+                    # cluster 1维
                     self.cluster.append(tf.cast(tf.argmax(self.gamma, axis=1), dtype=tf.int32))
                     print('      {:{length}} : {}'.format('cluster', self.cluster[-1], length=12))
-
+                    # 行聚类
                     i = tf.constant(0)
+                    # 数组
                     w_mean = tf.TensorArray(dtype=tf.float32, size=self.cluster_num)#tf.constant(0.0, shape=tf.TensorShape([]))
+
                     cond = lambda i,w_mean : i<self.cluster_num
+                    # rep value
                     x_batch = tf.reduce_max(self.em_w[-1], axis=[0,1]) - tf.reduce_min(self.em_w[-1], axis=[0,1])
+                    # 求每个组的均值向量
                     def func(i,w_mean):
                         mean = tf.reduce_mean(tf.boolean_mask(x_batch, tf.equal(self.cluster[-1],i)), axis=[0])
                         w_mean = w_mean.write(i, mean)
                         return i+1, w_mean
+                    # 求均值向量
                     i, w_mean = tf.while_loop(cond, func, [i,w_mean])
-                    self.max_idx.append(tf.cast(tf.argmax(w_mean.pack(), axis=0), tf.int32))
+                    self.max_idx.append(tf.cast(tf.argmax(w_mean.stack(), axis=0), tf.int32))
                     print('      {:{length}} : {}'.format('max_idx', self.max_idx[-1], length=12))
                 else:
-                    # em!= 0
+                    # em!= 0 如果不是第一
                     self.cluster.append(self.max_idx[-1])
                     print('      {:{length}} : {}'.format('cluster', self.cluster[-1], length=12))
                     #
@@ -259,9 +297,11 @@ class grcnn(object):
                         mean = tf.reduce_mean(tf.boolean_mask(x_batch, tf.equal(self.cluster[-1],i)), axis=[0])
                         w_mean = w_mean.write(i, mean)
                         return i+1, w_mean
+                    # 循环每一个输入节点
                     i, w_mean_ = tf.while_loop(cond, func, [i,w_mean])
-                    self.max_idx.append(tf.cast(tf.argmax(w_mean_.pack(), axis=0), tf.int32))
+                    self.max_idx.append(tf.cast(tf.argmax(w_mean_.stack(), axis=0), tf.int32))
                     print('      {:{length}} : {}'.format('max_idx', self.max_idx[-1], length=12))
+                # 列聚类
                 i = tf.constant(0)
                 w_mask_array = tf.TensorArray(dtype=tf.float32, size=self.weight_size[layer_count][-1])
                 cond2 = lambda i,w_mask_array : i<self.weight_size[layer_count][-1]
@@ -270,7 +310,7 @@ class grcnn(object):
                     w_mask_array = w_mask_array.write(i, w_mask_array_column)
                     return i+1, w_mask_array
                 i, w_mask_array = tf.while_loop(cond2, func2, [i, w_mask_array])
-                w_mask_pack = tf.transpose(w_mask_array.pack())
+                w_mask_pack = tf.transpose(w_mask_array.stack())
                 self.w_mask.append(tf.expand_dims(tf.stack([w_mask_pack for i in range(self.weight_size[layer_count][1])]), 0))
                 self.w_masked.append(tf.multiply(self.em_w[-1], self.w_mask[-1]))
             # end if-else
@@ -289,11 +329,15 @@ class grcnn(object):
             self.convs.append(layer)
             print('    {:{length}} : {}'.format('conv'+str(layer_count+1), layer.get_layer(), length=12))
             layer_count += 1
+            # 第一次执行至此时，根据作者的参数设定，layer_count = 2, len(self.conv) = 4
+            # 所以该 for 循环一共执行3次，分别为layer_count = 2、3、4时
+            # 退出该 for 循环时，layer_count = 4
             if layer_count>=len(self.conv):
                 break
         # end for
-        
+
         ### left conv layers
+        # 根据作者的参数设定，该for循环不执行
         for i in range(layer_count, len(self.conv)):
             layer = models.RCL(input=layer.get_layer(),
                                weight_size=self.weight_size[layer_count],
@@ -313,7 +357,8 @@ class grcnn(object):
         network = tf.reshape(layer.get_layer(), shape=[-1, self.feed_forwards[0]])# * self.keep_probs[1]]) ###
         self.flatten = network
         print('    {:{length}} : {}'.format('flatten', self.flatten, length=12))
-        
+
+        # 该 if 不执行
         if len(self.feed_forwards) == 2:
             network = models.feedforward(input = network,
                                          weight_size=[self.feed_forwards[0], self.feed_forwards[1]],
@@ -328,9 +373,12 @@ class grcnn(object):
             self.output = network#.get_layer()
             self.output_layer = network.get_layer()
             print('    {:{length}} : {}'.format('feedforward'+str(1), self.output_layer, length=12))
+        # 该 else 执行
         else:
             self.forwards=[]
+            # 根据作者的参数设定，该for循环执行一次：len(self.feed_forwards)-1 -1 = 1
             for f in range(len(self.feed_forwards)-1 -1):
+                #该 if 执行
                 if layer_count+1+f in self.em_layers:
                     with tf.name_scope('feedforward'+str(f+1)+'em'):
                         self.em_w.append(tf.Variable( tf.random_normal( [self.feed_forwards[f], self.feed_forwards[f+1]], stddev=self.std, dtype=tf.float32), name='w' ))
@@ -351,7 +399,7 @@ class grcnn(object):
                             w_mean = w_mean.write(i, mean)
                             return i+1, w_mean
                         i, w_mean = tf.while_loop(cond, func, [i,w_mean])
-                        self.max_idx.append(tf.cast(tf.argmax(w_mean.pack(), axis=0), tf.int32))
+                        self.max_idx.append(tf.cast(tf.argmax(w_mean.stack(), axis=0), tf.int32))
                         print('      {:{length}} : {}'.format('max_idx', self.max_idx[-1], length=12))
                         #
                         i = tf.constant(0)
@@ -362,10 +410,11 @@ class grcnn(object):
                             w_mask_array = w_mask_array.write(i, w_mask_array_column)
                             return i+1, w_mask_array
                         i, w_mask_array = tf.while_loop(cond2, func2, [i, w_mask_array])
-                        w_mask_pack = tf.transpose(w_mask_array.pack())
+                        w_mask_pack = tf.transpose(w_mask_array.stack())
                         self.w_mask.append(w_mask_pack)
                         self.w_masked.append(tf.multiply(self.em_w[-1], self.w_mask[-1]))
-                    ###                        
+
+                    # 以上代码的目的均为求 w_masked
                     network  = models.feedforward(input = network, 
                                                   weight_size=[self.feed_forwards[f], self.feed_forwards[f+1]],
                                                   weight=self.w_masked[-1],
@@ -380,6 +429,7 @@ class grcnn(object):
                                                   name='forward'+str(f+1))
                     self.forwards.append(network)
                     network = network.get_layer()
+                    # 此处 layer_count = 4, +1后为5
                     layer_count += 1
                     print('    {:{length}} : {}'.format('feedforward'+str(f+1), network, length=12))
                 else:
@@ -495,9 +545,10 @@ class grcnn(object):
 
 
 def unpickle(file):
-    import cPickle
+    import pickle
     with open(file, 'rb') as fo:
-        dict = cPickle.load(fo)
+        # dict = pickle.load(fo)
+        dict = pickle.load(fo, encoding='latin1')
     return dict
 
 
@@ -513,13 +564,15 @@ Load dataset
 data_path = './CIFAR-10'
 
 one_hot_enc = preprocessing.OneHotEncoder(n_values=10, sparse=False)
+# one_hot_enc = preprocessing.OneHotEncoder(categories=[range(10)], sparse=False)
 
 train_data=[]
 train_label=[]
 for i in range(5):
     tmp = unpickle('./cifar-10-batches-py/data_batch_'+str(i+1))
-    train_data.append(tmp['data'])
-    train_label.append(tmp['labels'])
+    # print(tmp)
+    train_data.append(tmp["data"])
+    train_label.append(tmp["labels"])
 train_data = np.concatenate(train_data).reshape([-1, 32,32,3], order='F')
 train_label = np.concatenate(train_label)
 train_label = one_hot_enc.fit_transform(train_label.reshape([-1,1]))
@@ -530,7 +583,6 @@ test_label = unpickle('./cifar-10-batches-py/test_batch')['labels']
 test_label = np.array(test_label)
 test_label = one_hot_enc.fit_transform(test_label.reshape([-1,1]))
 print("test data: {}, {}" .format(test_label.shape, test_label.shape))
-
 
 
 """
@@ -553,14 +605,15 @@ nonlinearity = tf.nn.relu
 err_func = tf.nn.softmax_cross_entropy_with_logits
 
 keep_probs = None
-use_dropout = not (keep_probs == None or keep_probs == [1.0 for i in range(len(keep_probs))])
+use_dropout = not (keep_probs == None or keep_probs == [1.0 for i in range(len(keep_probs))])   # 为false
 use_batchnorm = False
 
 optimizer = tf.train.RMSPropOptimizer
 l_rate = 0.0001
 std = 0.05
 
-num_epochs = 400
+num_epochs = 30
+# num_epochs = 2
 train_batch_num = train_data.shape[0] / batch_size
 #valid_batch_num = valid_data.shape[0] / batch_size
 test_batch_num = test_data.shape[0] / batch_size
@@ -581,35 +634,42 @@ Set Path
 """
 
 data_path = './CIFAR-10'
-#data_save_path = os.path.join('/data2/subin/regularize', data_path[2:])
+# data_save_path = os.path.join('/data2/subin/regularize', data_path[2:])
+data_save_path = os.path.join('./data2/subin/regularize', data_path[2:])
+
+# todo 初始化 data_save_path
+if not os.path.exists(data_save_path):
+    print( 'creating difectory {}'.format(data_save_path))
+    os.mkdir(os.path.join(data_save_path))
+
 
 if not os.path.exists(data_path):
-    print 'creating difectory {}'.format(data_path)
+    print( 'creating difectory {}'.format(data_path))
     os.mkdir(os.path.join(data_path))
 
 save_path = os.path.join(data_path, 'grcnn-clvar-freeze')
 if not os.path.exists(save_path):
-    print 'creating difectory {}'.format(save_path)
+    print( 'creating difectory {}'.format(save_path))
     os.mkdir(os.path.join(save_path))
 
 save_path = os.path.join(save_path, 'gradientdescentopt') if optimizer is None else os.path.join(save_path, str(optimizer).split('.')[-1][:-3])
 if not os.path.exists(save_path):
-    print 'creating difectory {}'.format(save_path)
+    print('creating difectory {}'.format(save_path))
     os.mkdir(os.path.join(save_path))
     
 save_path = os.path.join(save_path, 'use_batch_norm') if use_batchnorm else os.path.join(save_path, 'no_batch_norm')
 if not os.path.exists(save_path):
-    print 'creating difectory {}'.format(save_path)
+    print ('creating difectory {}'.format(save_path))
     os.mkdir(os.path.join(save_path))
 
 save_path = os.path.join(save_path, 'no_dropout') if not use_dropout else os.path.join(save_path, 'use_dropout')
 if not os.path.exists(save_path):
-    print 'creating difectory {}'.format(save_path)
+    print('creating difectory {}'.format(save_path))
     os.mkdir(os.path.join(save_path))
 
 save_path = os.path.join(save_path, str(nonlinearity).split(' ')[1]) if nonlinearity is not None else os.path.join(save_path, 'None')
 if not os.path.exists(save_path):
-    print 'creating difectory {}'.format(save_path)
+    print('creating difectory {}'.format(save_path))
     os.mkdir(os.path.join(save_path))
 
 
@@ -629,6 +689,8 @@ model_name = str(inputs[1:]).replace(', ', '_')+'-['+str(inputs[1]/ pool_size[0]
              '-batch'+str(batch_size)+'-l_rate'+str(l_rate)+'-std'+str(std)+\
              '-l_step'+str(l_step/train_batch_num)+'-l_decay'+str(l_decay)
 
+model_name = "history"
+
 if use_dropout:
     model_name = model_name + '-keep'+str(keep_probs).replace(', ','_')[1:-1]
     print(os.path.join(save_path, model_name))
@@ -636,7 +698,13 @@ print(os.path.join(save_path, model_name))
 
 
 if not os.path.exists(os.path.join(save_path, model_name)):
-    os.mkdir( os.path.join(save_path, model_name) )
+    save_path_origin = save_path
+    save_path = os.path.join(save_path, model_name)
+    if not os.path.exists(save_path):
+        print('creating difectory {}'.format(save_path))
+        os.mkdir(os.path.join(save_path))
+
+    save_path = save_path_origin
     print(os.path.join(save_path, model_name))
 
 
@@ -648,6 +716,7 @@ Train
 
 start_time = time.time()
 if 'model' in globals():
+    model = globals()["model"]
     model.terminate()
 model = grcnn(weight_size=weight_size, 
               pool=pool,
@@ -686,7 +755,7 @@ valid_history = pd.DataFrame(index=np.arange(0, num_epochs/valid_freq),
 test_history = pd.DataFrame(index=np.arange(0, len(test_epoch)),
                              columns=['epoch', 'train accuracy', 'test accuracy', 'timestamp'])
 cluster_history = pd.DataFrame(index=np.arange(0, num_epochs),
-                             columns=['epoch']+ range(0,model.cluster[0].get_shape()[0].value)+['timestamp'])
+                             columns=['epoch']+ [x for x in range(0,model.cluster[0].get_shape()[0].value)]+['timestamp'])
 col = ['epoch'] + ['layer'+str(i)+'-w_mask_pass' for i in em_layers] +['timestamp']
 param_history = pd.DataFrame(index=np.arange(0, num_epochs/save_freq), columns=col)
 
@@ -711,7 +780,7 @@ def test(test_data, test_labels, batch_size, model, test_batch_num):
         #                            feed_dict={model.x:test_in, model.y:test_target})
         accuracy += model.sess.run(tf.reduce_mean(tf.cast(tf.equal(tf.argmax(model.output_layer,1), tf.argmax(model.y, 1)), tf.float32)),
                                 feed_dict={model.x:test_in, model.y:test_target, model.keep_probs:keep_probs_values})
-    print'accuracy: {}'.format(accuracy/test_batch_num)
+    # print'accuracy: {}'.format(accuracy/test_batch_num)
     return accuracy/test_batch_num
 
 
@@ -985,13 +1054,13 @@ for em_layer_idx in range(len(em_layers)):
 
     w_masked_reordered_cl=[]
     for i in range(cluster_num):
-        w_masked_reordered_cl.append(w_masked_[cluster_==i,:])
+        w_masked_reordered_cl.append(w_mask_[cluster_==i,:])
     w_masked_reordered = np.concatenate(w_masked_reordered_cl)
     print(w_masked_reordered.shape)
 
     w_masked_reordered_cl=[]
     for i in range(cluster_num):
-        w_masked_reordered_cl.append(w_masked_reordered[:,w_masked_[cluster_==i,:][0]!=0])
+        w_masked_reordered_cl.append(w_masked_reordered[:,w_mask_[cluster_==i,:][0]!=0])
     w_masked_reordered = np.concatenate(w_masked_reordered_cl, axis=1)
     print(w_masked_reordered.shape)
 
